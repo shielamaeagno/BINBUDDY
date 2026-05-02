@@ -28,7 +28,7 @@ function nextUserCode(role) {
   return `${prefix}${String(n + 1).padStart(3, "0")}`;
 }
 
-export function register({ email, password, name, role: roleRaw }) {
+export function register({ email, password, name, role: roleRaw, phoneNumber, address }) {
   const role = normalizeRoleInput(roleRaw);
   if (!role || !isCanonicalRole(role)) {
     authLog("register_rejected", { reason: "invalid_role", roleRaw: typeof roleRaw === "string" ? roleRaw.slice(0, 32) : roleRaw });
@@ -44,11 +44,13 @@ export function register({ email, password, name, role: roleRaw }) {
   const full_name = (name || email.split("@")[0].replace(/\./g, " ") || "User").trim();
   const password_hash = bcrypt.hashSync(password, 10);
   const level = role === "household" ? badgeFromPoints(0) : null;
+  const normalizedPhone = String(phoneNumber || "").trim();
+  const normalizedAddress = String(address || "").trim();
 
   db.prepare(
-    `INSERT INTO users (user_code, full_name, email, password_hash, role, eco_points, streak_days, level, barangay)
-     VALUES (?, ?, ?, ?, ?, 0, 0, ?, 'Holy Spirit')`
-  ).run(user_code, full_name, email.trim().toLowerCase(), password_hash, role, level);
+    `INSERT INTO users (user_code, full_name, email, password_hash, phone_number, address, role, eco_points, streak_days, level, barangay)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 'Holy Spirit')`
+  ).run(user_code, full_name, email.trim().toLowerCase(), password_hash, normalizedPhone, normalizedAddress, role, level);
 
   const user = db.prepare("SELECT * FROM users WHERE user_code = ?").get(user_code);
   authLog("register_ok", { user_code, role });

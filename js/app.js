@@ -9,6 +9,7 @@ const TOKEN_KEY = "binbuddy-jwt";
 
 /** Align with server `passwordPolicy`: 8–128 chars, letters + numbers. */
 const AUTH_PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,128}$/;
+const AUTH_PHONE_REGEX = /^(\+63\d{10}|\d{10,11})$/;
 
 function validateRegisterPasswordClient(pw) {
   if (!AUTH_PASSWORD_REGEX.test(pw)) {
@@ -20,6 +21,20 @@ function validateRegisterPasswordClient(pw) {
 function validateLoginPasswordPresence(pw) {
   if (!pw || typeof pw !== "string") return "Password is required.";
   if (pw.length > 128) return "Password is too long.";
+  return "";
+}
+
+function validateRegisterPhoneClient(phoneNumber) {
+  const phone = String(phoneNumber || "").trim();
+  if (!phone) return "Phone number is required.";
+  if (!AUTH_PHONE_REGEX.test(phone)) {
+    return "Phone number must be numeric and can use +63 format.";
+  }
+  return "";
+}
+
+function validateRegisterAddressClient(address) {
+  if (!address || !String(address).trim()) return "Address is required.";
   return "";
 }
 
@@ -341,6 +356,10 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function todayInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function formatDateTime(iso) {
   return new Date(iso).toLocaleString();
 }
@@ -403,6 +422,8 @@ async function syncFromServer() {
         id: u.id,
         name: u.name,
         email: u.id === user.id ? user.email || "" : "",
+        phoneNumber: u.id === user.id ? user.phoneNumber || "" : "",
+        address: u.id === user.id ? user.address || "" : "",
         role: "household",
         ecoPoints: u.ecoPoints,
         streak: u.id === user.id ? user.streak : 0,
@@ -415,6 +436,8 @@ async function syncFromServer() {
           id: user.id,
           name: user.name,
           email: user.email || "",
+          phoneNumber: user.phoneNumber || "",
+          address: user.address || "",
           role: "household",
           ecoPoints: user.ecoPoints,
           streak: user.streak,
@@ -430,7 +453,9 @@ async function syncFromServer() {
             ecoPoints: user.ecoPoints,
             streak: user.streak,
             badge: user.badge,
-            email: user.email || ""
+            email: user.email || "",
+            phoneNumber: user.phoneNumber || "",
+            address: user.address || ""
           };
         }
       }
@@ -441,6 +466,8 @@ async function syncFromServer() {
           id: user.id,
           name: user.name,
           email: user.email || "",
+          phoneNumber: user.phoneNumber || "",
+          address: user.address || "",
           role: user.role,
           ecoPoints: user.ecoPoints || 0,
           streak: user.streak || 0,
@@ -509,7 +536,9 @@ function buildSeedState() {
         ecoPoints: 1245,
         streak: 7,
         badge: "Eco Champion",
-        barangay: "Holy Spirit"
+        barangay: "Holy Spirit",
+        phoneNumber: "09171234567",
+        address: "Brgy. Holy Spirit, Lipa City"
       },
       {
         id: "COL001",
@@ -520,7 +549,9 @@ function buildSeedState() {
         ecoPoints: 0,
         streak: 0,
         badge: "Collector",
-        barangay: "Holy Spirit"
+        barangay: "Holy Spirit",
+        phoneNumber: "09171230000",
+        address: "Brgy. Holy Spirit, Lipa City"
       },
       {
         id: "ADM001",
@@ -531,7 +562,9 @@ function buildSeedState() {
         ecoPoints: 0,
         streak: 0,
         badge: "Admin",
-        barangay: "Holy Spirit"
+        barangay: "Holy Spirit",
+        phoneNumber: "09179990000",
+        address: "Brgy. Holy Spirit, Lipa City"
       }
     ],
     logs: [
@@ -648,6 +681,10 @@ const AuthService = {
     const { email, password, role } = payload;
     const pwErr = validateRegisterPasswordClient(password);
     if (pwErr) return { ok: false, message: pwErr };
+    const phoneErr = validateRegisterPhoneClient(payload.phoneNumber);
+    if (phoneErr) return { ok: false, message: phoneErr };
+    const addressErr = validateRegisterAddressClient(payload.address);
+    if (addressErr) return { ok: false, message: addressErr };
     const existing = AppState.users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.role === role);
     if (existing) return { ok: false, message: "Account already exists for this role." };
     const idPrefix = role === "collector" ? "COL" : role === "admin" ? "ADM" : "USR";
@@ -661,7 +698,9 @@ const AuthService = {
       ecoPoints: 0,
       streak: 0,
       badge: "Eco Starter",
-      barangay: "Holy Spirit"
+      barangay: "Holy Spirit",
+      phoneNumber: String(payload.phoneNumber || "").trim(),
+      address: String(payload.address || "").trim()
     };
     AppState.users.push(user);
     persistState();
@@ -704,7 +743,7 @@ const WasteLogService = {
     if (weight <= 0) return "Weight must be greater than zero.";
     return null;
   },
-  createLog({ user, rawType, weight }) {
+  createLog({ user, rawType, weight, logDate, photoPath }) {
     const log = {
       id: `LOG${String(Date.now()).slice(-6)}`,
       userId: user.id,
@@ -712,10 +751,12 @@ const WasteLogService = {
       type: this.normalizeWasteType(rawType),
       weight: Number(weight.toFixed(2)),
       createdAt: nowIso(),
+      logDate: logDate || nowIso(),
       status: "Pending",
       verifiedBy: null,
       completedAt: null,
-      ecoPointsAwarded: 0
+      ecoPointsAwarded: 0,
+      photoPath: photoPath || null
     };
     AppState.logs.unshift(log);
     AppState.notifications.unshift({
@@ -937,6 +978,10 @@ function openLogModal() {
     showToast("Household login required.");
     return;
   }
+  const modalDate = document.getElementById("modal-log-date");
+  if (modalDate && !modalDate.value) {
+    modalDate.value = todayInputValue();
+  }
   document.getElementById("log-modal").classList.add("active");
 }
 
@@ -995,6 +1040,59 @@ function getManualInputWeight() {
   return Number.isFinite(parsedQty) ? parsedQty : NaN;
 }
 
+function resolveLogDateValue() {
+  const manualDate = document.getElementById("manual-log-date");
+  const modalDate = document.getElementById("modal-log-date");
+  const value = (modalDate?.value || manualDate?.value || "").trim();
+  return value || todayInputValue();
+}
+
+function updatePhotoLabel(fileName) {
+  const label = document.getElementById("manual-photo-label");
+  if (!label) return;
+  label.textContent = fileName ? `Selected: ${fileName}` : "Tap to add photo proof (JPG/PNG)";
+}
+
+async function readSelectedLogPhoto() {
+  const manualInput = document.getElementById("manual-log-photo");
+  const modalInput = document.getElementById("modal-log-photo");
+  const file = (modalInput && modalInput.files && modalInput.files[0]) || (manualInput && manualInput.files && manualInput.files[0]) || null;
+  if (!file) return { dataUrl: null, fileName: null };
+  if (!["image/jpeg", "image/png"].includes(file.type)) {
+    throw new Error("Only JPG and PNG images are allowed.");
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    throw new Error("Image size must be 2MB or less.");
+  }
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Could not read selected image."));
+    reader.readAsDataURL(file);
+  });
+  return { dataUrl, fileName: file.name };
+}
+
+function resetLogInputs() {
+  const notesEl = document.querySelector("#manual-panel textarea");
+  const manualDate = document.getElementById("manual-log-date");
+  const modalDate = document.getElementById("modal-log-date");
+  const manualPhoto = document.getElementById("manual-log-photo");
+  const modalPhoto = document.getElementById("modal-log-photo");
+  if (notesEl) notesEl.value = "";
+  if (manualDate) manualDate.value = todayInputValue();
+  if (modalDate) modalDate.value = todayInputValue();
+  if (manualPhoto) manualPhoto.value = "";
+  if (modalPhoto) modalPhoto.value = "";
+  updatePhotoLabel("");
+}
+
+function cancelLogSubmission() {
+  if (!window.confirm("Are you sure you want to cancel?")) return;
+  resetLogInputs();
+  closeModal("log-modal");
+}
+
 async function submitLog() {
   const user = AuthService.currentUser();
   if (!user || user.role !== "household") {
@@ -1007,14 +1105,29 @@ async function submitLog() {
     showToast(error);
     return;
   }
+  const notesEl = document.querySelector("#manual-panel textarea");
+  const notes = notesEl ? notesEl.value.trim() : "";
+  const logDate = resolveLogDateValue();
+  let photoDataUrl = null;
+  let photoFileName = null;
+  try {
+    const selected = await readSelectedLogPhoto();
+    photoDataUrl = selected.dataUrl;
+    photoFileName = selected.fileName;
+  } catch (photoError) {
+    showToast(photoError.message || "Invalid photo upload.");
+    return;
+  }
+
   if (apiMode && getToken()) {
     try {
-      const notesEl = document.querySelector("#manual-panel textarea");
-      const notes = notesEl ? notesEl.value.trim() : "";
       const payload = {
         wasteType: AppState.logType,
         weight,
-        notes
+        notes,
+        logDate,
+        photoDataUrl,
+        photoFileName
       };
       const created = await apiFetch("/logs", {
         method: "POST",
@@ -1022,6 +1135,7 @@ async function submitLog() {
       });
       closeModal("log-modal");
       openSuccessModal(created.log);
+      resetLogInputs();
       await syncFromServer();
       refreshUI();
       return;
@@ -1030,9 +1144,16 @@ async function submitLog() {
       return;
     }
   }
-  const log = WasteLogService.createLog({ user, rawType: AppState.logType, weight });
+  const log = WasteLogService.createLog({
+    user,
+    rawType: AppState.logType,
+    weight,
+    logDate: new Date(logDate).toISOString(),
+    photoPath: photoDataUrl || null
+  });
   closeModal("log-modal");
   openSuccessModal(log);
+  resetLogInputs();
   refreshUI();
 }
 
@@ -1101,10 +1222,12 @@ function renderLeaderboard() {
 function renderProfile() {
   const user = AuthService.currentUser();
   const name = document.getElementById("profile-name");
+  const profileAddress = document.getElementById("profile-brgy");
   const pts = document.getElementById("profile-pts");
   const streak = document.getElementById("profile-streak");
   const badge = document.getElementById("eco-badge-pts");
   if (name) name.textContent = user ? (user.name || "User") : "User";
+  if (profileAddress) profileAddress.textContent = user ? (user.address || "Address not set") : "Address not set";
   if (pts) pts.textContent = user ? user.ecoPoints : "0";
   if (streak) streak.textContent = user ? user.streak : "0";
   if (badge) badge.textContent = `⭐ ${user ? user.ecoPoints : 0} pts`;
@@ -1119,6 +1242,14 @@ function renderHomeGreeting() {
   const user = AuthService.currentUser();
   const name = user ? (user.name || "User") : (AppState.currentUserName || "User");
   greeting.textContent = `Hi, ${name} 👋`;
+}
+
+function renderUserAddress() {
+  const user = AuthService.currentUser();
+  const homeAddress = document.getElementById("home-user-address");
+  if (homeAddress) {
+    homeAddress.textContent = user ? (user.address || "Address not set") : "Address not set";
+  }
 }
 
 function renderCollectorView() {
@@ -1262,18 +1393,302 @@ function renderAdminAnalytics() {
 function initGuide() {
   const el = document.getElementById("guide-items");
   if (!el) return;
-  const items = [
-    { name: "PET Bottle", type: "PET" },
-    { name: "HDPE Detergent Bottle", type: "HDPE" },
-    { name: "Milk Jug", type: "HDPE" },
-    { name: "Water Bottle", type: "PET" }
+
+  const PET = [
+    "Soft drink bottles (Coke, Pepsi, etc.)",
+    "Bottled water containers",
+    "Energy drink bottles",
+    "Cooking oil bottles",
+    "Food-grade transparent containers",
+    "Salad dressing bottles",
+    "Peanut butter jars (PET type only)",
+    "Juice bottles (clear plastic type)",
+    "Disposable drink cups (PET plastic cups)",
+    "Food packaging trays (clear PET type)",
+    "Medicine syrup bottles (PET type)",
+    "Single-use plastic beverage bottles"
   ];
-  el.innerHTML = items.map(i => `
-    <div class="card">
-      <strong>${i.name}</strong><br/>
-      → ${i.type}
+
+  const HDPE = [
+    "Milk jugs and juice bottles",
+    "Shampoo and conditioner bottles",
+    "Dishwashing liquid containers",
+    "Laundry detergent bottles",
+    "Bleach containers",
+    "Household cleaning product bottles",
+    "Plastic buckets and pails (HDPE type)",
+    "Grocery bags (HDPE plastic bags)",
+    "Plastic toys (hard plastic, HDPE type)",
+    "Pipe and plumbing materials (HDPE pipes)",
+    "Storage containers and jerry cans",
+    "Cosmetic bottles (non-aerosol HDPE type)"
+  ];
+
+  const renderSection = (title, codeLabel, codeClass, items) => `
+    <div class="card bb-guide-section">
+      <div class="bb-guide-title-row">
+        <div class="bb-guide-title">${title}</div>
+        <div class="bb-guide-code ${codeClass}">${codeLabel}</div>
+      </div>
+      <div class="bb-guide-grid">
+        ${items
+          .map(
+            (t) => `
+          <div class="bb-guide-chip">
+            ${t}
+            <small>Tap chips above to log PET/HDPE</small>
+          </div>
+        `
+          )
+          .join("")}
+      </div>
     </div>
-  `).join("");
+  `;
+
+  el.innerHTML =
+    renderSection("PET (Polyethylene Terephthalate)", "Code 1 · PET", "pet", PET) +
+    renderSection("HDPE (High-Density Polyethylene)", "Code 2 · HDPE", "hdpe", HDPE);
+}
+
+function initRecyclableChecker() {
+  const input = document.getElementById("checker-input");
+  const btn = document.getElementById("btn-check-waste");
+  const out = document.getElementById("checker-result");
+  if (!input || !btn || !out) return;
+
+  const norm = (s) =>
+    String(s || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const hasAny = (text, words) => words.some((w) => text.includes(w));
+  const uniq = (arr) => Array.from(new Set(arr));
+
+  function levenshtein(a, b) {
+    if (a === b) return 0;
+    if (!a) return b.length;
+    if (!b) return a.length;
+    const m = a.length;
+    const n = b.length;
+    const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 0; i <= m; i++) dp[i][0] = i;
+    for (let j = 0; j <= n; j++) dp[0][j] = j;
+    for (let i = 1; i <= m; i++) {
+      for (let j = 1; j <= n; j++) {
+        const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+        dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+      }
+    }
+    return dp[m][n];
+  }
+
+  function fuzzyTokenScore(token, keyword) {
+    if (!token || !keyword) return 0;
+    if (token === keyword) return 6;
+    if (keyword.includes(token) && token.length >= 3) return 4; // partial input: "styro" in "styrofoam"
+    if (token.includes(keyword) && keyword.length >= 3) return 3; // phrase contains keyword
+    if (token.length >= 4 && keyword.length >= 4 && levenshtein(token, keyword) <= 1) return 2; // basic typo tolerance
+    return 0;
+  }
+
+  function phraseScore(qTokens, keywords) {
+    let score = 0;
+    for (const kw of keywords) {
+      const kwNorm = norm(kw);
+      const kwTokens = kwNorm.split(" ").filter(Boolean);
+      if (kwTokens.length > 1) {
+        // multi-word keyword: match across phrase
+        const hit = kwTokens.every((t) => qTokens.some((qt) => fuzzyTokenScore(qt, t) > 0));
+        if (hit) score += 4;
+        continue;
+      }
+      const t = kwTokens[0];
+      if (!t) continue;
+      const best = Math.max(...qTokens.map((qt) => fuzzyTokenScore(qt, t)));
+      score += best;
+    }
+    return score;
+  }
+
+  const NOT_REC = [
+    { label: "Styrofoam", keys: ["styrofoam", "styro", "polystyrene", "foam"] },
+    { label: "Sachet / multilayer", keys: ["sachet", "laminated", "multi layer", "multilayer", "foil pack"] },
+    { label: "Tissue / napkin", keys: ["tissue", "napkin", "toilet paper"] },
+    { label: "Food waste", keys: ["food waste", "leftover", "banana peel", "fruit peel"] },
+    { label: "Contaminated paper cup", keys: ["paper cup", "coffee cup", "tea cup"] },
+    { label: "Plastic straw / utensils", keys: ["straw", "spoon", "fork", "plastic utensil", "cutlery"] },
+    { label: "Diapers / sanitary", keys: ["diaper", "sanitary", "pad"] }
+  ];
+
+  // Keyword sets include short inputs and common variants.
+  const PET_KEYS = [
+    "coke",
+    "pepsi",
+    "soda",
+    "soft drink",
+    "cola",
+    "bottled water",
+    "water",
+    "water bottle",
+    "energy drink",
+    "gatorade",
+    "sports drink",
+    "cooking oil",
+    "oil bottle",
+    "salad dressing",
+    "syrup bottle",
+    "medicine syrup",
+    "clear bottle",
+    "transparent container",
+    "pet bottle",
+    "bottle",
+    "drink",
+    "drink cup",
+    "clear tray",
+    "food tray",
+    "juice bottle"
+  ];
+
+  const HDPE_KEYS = [
+    "shampoo",
+    "conditioner",
+    "dishwashing",
+    "dish soap",
+    "soap",
+    "laundry",
+    "detergent",
+    "bleach",
+    "gallon",
+    "cleaning product",
+    "milk jug",
+    "jug",
+    "jerry can",
+    "bucket",
+    "pail",
+    "pipe",
+    "plumbing",
+    "toy",
+    "grocery bag",
+    "hdpe bag",
+    "storage container",
+    "container",
+    "cosmetic bottle"
+  ];
+
+  function classify(raw) {
+    const q = norm(raw);
+    if (!q) return { kind: "empty" };
+    if (q.length < 3) return { kind: "vague" };
+
+    const qTokens = uniq(q.split(" ").filter(Boolean));
+    const meaningful = qTokens.filter((t) => t.length >= 3);
+    if (meaningful.length === 0) return { kind: "vague" };
+
+    // Try non-recyclable first (stronger / safer).
+    const notScores = NOT_REC.map((r) => ({
+      label: r.label,
+      score: phraseScore(meaningful, r.keys)
+    })).sort((a, b) => b.score - a.score);
+    if (notScores[0] && notScores[0].score >= 4) return { kind: "not", label: notScores[0].label };
+
+    // Category scores (fuzzy / partial / light typo tolerance).
+    let petScore = phraseScore(meaningful, PET_KEYS);
+    let hdpeScore = phraseScore(meaningful, HDPE_KEYS);
+
+    // Heuristic: if query mentions cleaning-related words, prefer HDPE; beverage-related, prefer PET.
+    const beverageBoost = hasAny(q, ["coke", "pepsi", "cola", "soda", "juice", "water", "drink"]) ? 2 : 0;
+    const cleaningBoost = hasAny(q, ["shampoo", "detergent", "bleach", "soap", "laundry", "dish"]) ? 2 : 0;
+    petScore += beverageBoost;
+    hdpeScore += cleaningBoost;
+
+    if (petScore === 0 && hdpeScore === 0) return { kind: "unknown" };
+    if (petScore === hdpeScore) {
+      // If only "bottle" / "plastic" appears, ask for more detail.
+      const generic = hasAny(q, ["plastic", "bottle", "container"]);
+      if (generic && meaningful.length === 1) return { kind: "vague" };
+      return { kind: "pet" };
+    }
+    return petScore > hdpeScore ? { kind: "pet" } : { kind: "hdpe" };
+  }
+
+  function render(raw) {
+    const q = String(raw || "").trim();
+    const res = classify(q);
+    if (!q) {
+      out.innerHTML = "";
+      return;
+    }
+
+    if (res.kind === "vague") {
+      out.innerHTML = `
+        <div class="bb-classify">
+          <div class="bb-classify-left"><strong>Try a more specific keyword.</strong> Example: "coke", "shampoo", "styro".</div>
+          <div class="bb-pill not">Too vague</div>
+        </div>
+      `;
+      return;
+    }
+
+    if (res.kind === "unknown") {
+      out.innerHTML = `
+        <div class="bb-classify">
+          <div class="bb-classify-left"><strong>Item not recognized.</strong> Please try a more specific keyword.</div>
+          <div class="bb-pill not">Unknown</div>
+        </div>
+      `;
+      return;
+    }
+
+    if (res.kind === "not") {
+      out.innerHTML = `
+        <div class="bb-classify">
+          <div class="bb-classify-left"><strong>${q}</strong> → Not Recyclable</div>
+          <div class="bb-pill not">Not recyclable</div>
+        </div>
+      `;
+      return;
+    }
+
+    if (res.kind === "pet") {
+      out.innerHTML = `
+        <div class="bb-classify">
+          <div class="bb-classify-left"><strong>${q}</strong> → PET (Recyclable)</div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <div class="bb-pill recyclable">Recyclable</div>
+            <div class="bb-pill pet">PET</div>
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    out.innerHTML = `
+      <div class="bb-classify">
+        <div class="bb-classify-left"><strong>${q}</strong> → HDPE (Recyclable)</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <div class="bb-pill recyclable">Recyclable</div>
+          <div class="bb-pill hdpe">HDPE</div>
+        </div>
+      </div>
+    `;
+  }
+
+  let t = null;
+  const schedule = () => {
+    if (t) window.clearTimeout(t);
+    t = window.setTimeout(() => render(input.value), 120);
+  };
+
+  input.addEventListener("input", schedule);
+  btn.addEventListener("click", () => render(input.value));
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      render(input.value);
+    }
+  });
 }
 
 function initRewards() {
@@ -1346,8 +1761,12 @@ function initAuth() {
   const emailInput = document.getElementById("auth-email");
   const passwordInput = document.getElementById("auth-password");
   const passwordToggleBtn = document.getElementById("auth-password-toggle");
+  const phoneInput = document.getElementById("auth-phone-number");
+  const addressInput = document.getElementById("auth-address");
   const emailError = document.getElementById("auth-email-error");
   const passwordError = document.getElementById("auth-password-error");
+  const phoneError = document.getElementById("auth-phone-number-error");
+  const addressError = document.getElementById("auth-address-error");
 
   const setFieldError = (inputEl, errorEl, message) => {
     if (!inputEl || !errorEl) return;
@@ -1359,6 +1778,8 @@ function initAuth() {
   const clearInlineErrors = () => {
     setFieldError(emailInput, emailError, "");
     setFieldError(passwordInput, passwordError, "");
+    setFieldError(phoneInput, phoneError, "");
+    setFieldError(addressInput, addressError, "");
   };
 
   const syncPasswordAutocomplete = () => {
@@ -1377,6 +1798,8 @@ function initAuth() {
   const clearAuthFields = () => {
     if (emailInput) emailInput.value = "";
     if (passwordInput) passwordInput.value = "";
+    if (phoneInput) phoneInput.value = "";
+    if (addressInput) addressInput.value = "";
   };
   const focusAuthEmail = () => {
     if (emailInput) emailInput.focus();
@@ -1389,6 +1812,8 @@ function initAuth() {
 
   emailInput?.addEventListener("input", () => setFieldError(emailInput, emailError, ""));
   passwordInput?.addEventListener("input", () => setFieldError(passwordInput, passwordError, ""));
+  phoneInput?.addEventListener("input", () => setFieldError(phoneInput, phoneError, ""));
+  addressInput?.addEventListener("input", () => setFieldError(addressInput, addressError, ""));
 
   passwordToggleBtn?.addEventListener("click", () => {
     if (!passwordInput) return;
@@ -1396,7 +1821,9 @@ function initAuth() {
     passwordInput.type = reveal ? "text" : "password";
     passwordToggleBtn.setAttribute("aria-pressed", String(reveal));
     passwordToggleBtn.setAttribute("aria-label", reveal ? "Hide password" : "Show password");
-    passwordToggleBtn.textContent = reveal ? "🙈" : "👁️";
+    // Keep a single eye icon; indicate state via aria + subtle styling.
+    passwordToggleBtn.textContent = "👁️";
+    passwordToggleBtn.classList.toggle("is-revealed", reveal);
     passwordInput.focus();
   });
 
@@ -1431,6 +1858,8 @@ function initAuth() {
     clearInlineErrors();
     const email = (emailInput ? emailInput.value : "").trim();
     const password = passwordInput ? passwordInput.value : "";
+    const phoneNumber = (phoneInput ? phoneInput.value : "").trim();
+    const address = (addressInput ? addressInput.value : "").trim();
     if (!email || !email.includes("@")) {
       setFieldError(emailInput, emailError, "Please enter a valid email address");
       emailInput?.focus();
@@ -1449,6 +1878,18 @@ function initAuth() {
       return;
     }
     if (AppState.authMode === "register") {
+      const phoneValidationError = validateRegisterPhoneClient(phoneNumber);
+      if (phoneValidationError) {
+        setFieldError(phoneInput, phoneError, phoneValidationError);
+        phoneInput?.focus();
+        return;
+      }
+      const addressValidationError = validateRegisterAddressClient(address);
+      if (addressValidationError) {
+        setFieldError(addressInput, addressError, addressValidationError);
+        addressInput?.focus();
+        return;
+      }
       const rp = validateRegisterPasswordClient(password);
       if (rp) {
         setFieldError(passwordInput, passwordError, "Password must be at least 8 characters with letters and numbers");
@@ -1467,7 +1908,9 @@ function initAuth() {
             email,
             password,
             name: displayName,
-            role: registrationRole
+            role: registrationRole,
+            phoneNumber,
+            address
           })
         });
         setToken(reg.token);
@@ -1482,7 +1925,9 @@ function initAuth() {
           email,
           password,
           name: displayName,
-          role: registrationRole
+          role: registrationRole,
+          phoneNumber,
+          address
         });
         if (!reg.ok) {
           showToast(e.message || reg.message);
@@ -1517,7 +1962,8 @@ function initAuth() {
     } catch (e) {
       const loginFallback = AuthService.login({ email, password, role: normalizeRole(AppState.role) });
       if (!loginFallback.ok) {
-        showToast(e.message || loginFallback.message);
+        setFieldError(passwordInput, passwordError, "Incorrect password");
+        showToast("Incorrect password");
         return;
       }
       const targetScreen = getRoleHomeScreen(loginFallback.user.role);
@@ -1627,6 +2073,25 @@ function initNavigation() {
       await submitLog();
     });
   }
+
+  const manualDate = document.getElementById("manual-log-date");
+  const modalDate = document.getElementById("modal-log-date");
+  if (manualDate && !manualDate.value) manualDate.value = todayInputValue();
+  if (modalDate && !modalDate.value) modalDate.value = todayInputValue();
+
+  const manualPhoto = document.getElementById("manual-log-photo");
+  const modalPhoto = document.getElementById("modal-log-photo");
+  manualPhoto?.addEventListener("change", () => {
+    const file = manualPhoto.files?.[0];
+    updatePhotoLabel(file ? file.name : "");
+  });
+  modalPhoto?.addEventListener("change", () => {
+    const file = modalPhoto.files?.[0];
+    updatePhotoLabel(file ? file.name : "");
+    if (manualPhoto && modalPhoto.files?.length) {
+      manualPhoto.value = "";
+    }
+  });
 }
 
 function selectModalType(type, el) {
@@ -1646,6 +2111,7 @@ function selectModalType(type, el) {
 
 function refreshUI() {
   renderHomeGreeting();
+  renderUserAddress();
   renderProfile();
   updateHomeStats();
   renderRecentLogs();
@@ -1722,7 +2188,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   initAuth();
   initAdminActions();
   initGuide();
+  initRecyclableChecker();
   updateQtyUI();
+  resetLogInputs();
   refreshUI();
 });
 
@@ -1742,3 +2210,4 @@ window.handleCollectorDecision = handleCollectorDecision;
 window.redeemReward = redeemReward;
 window.selectModalType = selectModalType;
 window.logout = logout;
+window.cancelLogSubmission = cancelLogSubmission;

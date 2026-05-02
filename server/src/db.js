@@ -20,6 +20,33 @@ const schemaPath = path.join(__dirname, "schema.sql");
 const schema = fs.readFileSync(schemaPath, "utf8");
 db.exec(schema);
 
+function ensureUserColumns() {
+  const cols = db.prepare("PRAGMA table_info(users)").all();
+  const colNames = new Set(cols.map(c => c.name));
+
+  if (!colNames.has("phone_number")) {
+    db.exec("ALTER TABLE users ADD COLUMN phone_number TEXT NOT NULL DEFAULT ''");
+  }
+  if (!colNames.has("address")) {
+    db.exec("ALTER TABLE users ADD COLUMN address TEXT NOT NULL DEFAULT ''");
+  }
+}
+
+ensureUserColumns();
+
+function ensureWasteLogColumns() {
+  const cols = db.prepare("PRAGMA table_info(waste_logs)").all();
+  const colNames = new Set(cols.map(c => c.name));
+  if (!colNames.has("log_date")) {
+    db.exec("ALTER TABLE waste_logs ADD COLUMN log_date TEXT");
+  }
+  if (!colNames.has("photo_path")) {
+    db.exec("ALTER TABLE waste_logs ADD COLUMN photo_path TEXT");
+  }
+}
+
+ensureWasteLogColumns();
+
 function seedIfEmpty() {
   const count = db.prepare("SELECT COUNT(*) AS c FROM users").get().c;
   if (count > 0) return;
@@ -27,8 +54,8 @@ function seedIfEmpty() {
   const hash = (p) => bcrypt.hashSync(p, 10);
 
   const insertUser = db.prepare(`
-    INSERT INTO users (user_code, full_name, email, password_hash, role, eco_points, streak_days, level, barangay)
-    VALUES (@user_code, @full_name, @email, @password_hash, @role, @eco_points, @streak_days, @level, @barangay)
+    INSERT INTO users (user_code, full_name, email, password_hash, phone_number, address, role, eco_points, streak_days, level, barangay)
+    VALUES (@user_code, @full_name, @email, @password_hash, @phone_number, @address, @role, @eco_points, @streak_days, @level, @barangay)
   `);
 
   insertUser.run({
@@ -36,6 +63,8 @@ function seedIfEmpty() {
     full_name: "Maria Santos",
     email: "maria@email.com",
     password_hash: hash("password123"),
+    phone_number: "09171234567",
+    address: "Brgy. Holy Spirit, Lipa City",
     role: "household",
     eco_points: 1245,
     streak_days: 7,
@@ -47,6 +76,8 @@ function seedIfEmpty() {
     full_name: "Roberto Cruz",
     email: "collector@email.com",
     password_hash: hash("password123"),
+    phone_number: "09171230000",
+    address: "Brgy. Holy Spirit, Lipa City",
     role: "collector",
     eco_points: 0,
     streak_days: 0,
@@ -58,6 +89,8 @@ function seedIfEmpty() {
     full_name: "Brgy. Holy Spirit Admin",
     email: "admin@email.com",
     password_hash: hash("password123"),
+    phone_number: "09179990000",
+    address: "Brgy. Holy Spirit, Lipa City",
     role: "admin",
     eco_points: 0,
     streak_days: 0,

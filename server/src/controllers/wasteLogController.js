@@ -4,7 +4,10 @@ import { createLog, listLogsForRole, listNotificationsForUser, verifyLog, getLea
 export const createLogValidators = [
   body("wasteType").isIn(["PET", "HDPE", "pet", "hdpe", "bio", "rec"]),
   body("weight").isFloat({ gt: 0 }),
-  body("notes").optional().isString().isLength({ max: 2000 })
+  body("notes").optional().isString().isLength({ max: 2000 }),
+  body("logDate").optional().isISO8601().withMessage("logDate must be a valid date."),
+  body("photoDataUrl").optional().isString().isLength({ max: 3_500_000 }),
+  body("photoFileName").optional().isString().isLength({ max: 255 })
 ];
 
 export function getLogs(req, res) {
@@ -20,9 +23,9 @@ export function postLog(req, res) {
   if (req.auth.role !== "household") {
     return res.status(403).json({ ok: false, message: "Only household users can submit logs." });
   }
-  const { wasteType, weight, notes } = req.body;
+  const { wasteType, weight, notes, logDate, photoDataUrl, photoFileName } = req.body;
   try {
-    const log = createLog(req.auth.sub, { wasteType, weight, notes });
+    const log = createLog(req.auth.sub, { wasteType, weight, notes, logDate, photoDataUrl, photoFileName });
     return res.status(201).json({ ok: true, log });
   } catch (e) {
     return res.status(400).json({ ok: false, message: e.message || "Could not create log." });

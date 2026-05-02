@@ -4,6 +4,8 @@ export function toPublicUser(row) {
     id: row.user_code,
     name: row.full_name,
     email: row.email,
+    phoneNumber: row.phone_number || "",
+    address: row.address || "",
     role: row.role,
     ecoPoints: row.eco_points,
     streak: row.streak_days,

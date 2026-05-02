@@ -11,7 +11,8 @@ const PORT = Number(process.env.PORT) || 3000;
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: "1mb" }));
+app.use(express.json({ limit: "5mb" }));
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 app.use("/api", apiRoutes);
 

@@ -63,6 +63,16 @@
             </div>
             <p class="field-error" id="auth-password-error" aria-live="polite"></p>
           </div>
+          <div class="form-group auth-register-only">
+            <label for="auth-phone-number">Phone Number</label>
+            <input id="auth-phone-number" name="phoneNumber" class="form-control" type="tel" inputmode="tel" maxlength="14" autocomplete="tel" placeholder="09XXXXXXXXX or +639XXXXXXXXX"/>
+            <p class="field-error" id="auth-phone-number-error" aria-live="polite"></p>
+          </div>
+          <div class="form-group auth-register-only">
+            <label for="auth-address">Address</label>
+            <input id="auth-address" name="address" class="form-control" type="text" maxlength="255" autocomplete="street-address" placeholder="Enter your complete address"/>
+            <p class="field-error" id="auth-address-error" aria-live="polite"></p>
+          </div>
           <p class="auth-password-hint" id="auth-password-hint">Use at least 8 characters with letters and numbers.</p>
           <label class="auth-role-heading">Select your role</label>
           <div class="role-selector" role="group" aria-label="Account role">
@@ -97,7 +107,12 @@
   <section id="screen-home" class="screen">
     <div class="page-header">
       <div class="page-header-sub">Good morning! 🌿</div>
-      <h1 id="home-greeting-name">Hi, User 👋</h1>
+      <div class="home-header-row">
+        <h1 id="home-greeting-name">Hi, User 👋</h1>
+        <button type="button" class="home-alert-right" id="home-alert-right" onclick="goTo('notifications');renderNotifications()" aria-label="Alerts">
+          🔔
+        </button>
+      </div>
     </div>
     <div class="page-content">
       <!-- Welcome Banner -->
@@ -105,7 +120,7 @@
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
             <h2>Eco Champion 🏆</h2>
-            <p>Brgy. Holy Spirit, Lipa City</p>
+            <p id="home-user-address">Brgy. Holy Spirit, Lipa City</p>
           </div>
           <div style="text-align:right">
             <div style="font-size:1.8rem;font-weight:900;font-family:var(--font-main)">🔥 7</div>
@@ -168,7 +183,7 @@
 
       <!-- Quick Navigate -->
       <div class="section-title">🚀 Quick Access</div>
-      <div class="stats-grid">
+      <div class="stats-grid quick-access-grid">
         <div class="stat-card" onclick="goTo('guide');initGuide()" style="cursor:pointer">
           <div class="stat-icon">📚</div>
           <div class="stat-label" style="font-size:0.82rem;font-weight:700">Seg. Guide</div>
@@ -180,10 +195,6 @@
         <div class="stat-card" onclick="goTo('leaderboard')" style="cursor:pointer">
           <div class="stat-icon">🏆</div>
           <div class="stat-label" style="font-size:0.82rem;font-weight:700">Leaderboard</div>
-        </div>
-        <div class="stat-card" onclick="goTo('notifications');renderNotifications()" style="cursor:pointer">
-          <div class="stat-icon">🔔</div>
-          <div class="stat-label" style="font-size:0.82rem;font-weight:700">Alerts</div>
         </div>
       </div>
 
@@ -221,20 +232,6 @@
       <!-- Method Tabs -->
       <div class="log-form-tabs">
         <button class="log-tab active" data-method="manual">✏️ Manual Entry</button>
-        <button class="log-tab" data-method="qr">📱 QR Scanner</button>
-      </div>
-
-      <!-- QR Scanner Panel -->
-      <div id="qr-panel" class="hidden">
-        <div class="qr-scanner">
-          <div class="qr-frame">
-            <div class="qr-scan-line"></div>
-          </div>
-          <p>📷 Simulated camera view<br/>Align QR code within the frame</p>
-        </div>
-        <button class="btn btn-primary" onclick="showToast('✅ QR Code detected! Loading user data...');openLogModal()">
-          🔍 Scan QR Code
-        </button>
       </div>
 
       <!-- Manual Log Panel -->
@@ -258,6 +255,10 @@
           </div>
           <button class="qty-btn" id="qty-plus">+</button>
         </div>
+        <div class="form-group">
+          <label for="manual-log-date">Date</label>
+          <input id="manual-log-date" class="form-control" type="date"/>
+        </div>
 
         <!-- Notes -->
         <div class="form-group">
@@ -267,10 +268,11 @@
 
         <!-- Photo Upload Mock -->
         <div style="border:2px dashed var(--border);border-radius:12px;padding:20px;text-align:center;margin-bottom:16px;cursor:pointer;background:#fafffe"
-             onclick="showToast('📷 Camera would open here')">
+             onclick="document.getElementById('manual-log-photo')?.click()">
           <div style="font-size:2rem">📷</div>
-          <div style="font-size:0.85rem;color:var(--text-muted);margin-top:4px">Tap to add photo proof</div>
+          <div style="font-size:0.85rem;color:var(--text-muted);margin-top:4px" id="manual-photo-label">Tap to add photo proof (JPG/PNG)</div>
         </div>
+        <input id="manual-log-photo" type="file" accept="image/jpeg,image/png" style="display:none"/>
 
         <!-- Submit -->
         <button class="btn btn-primary" id="btn-submit-log">
@@ -295,18 +297,15 @@
       <h1>What Goes Where?</h1>
     </div>
     <div class="page-content">
-      <!-- Search -->
-      <div class="guide-search">
-        <span>🔍</span>
-        <input id="guide-search-input" type="text" placeholder="Search item (e.g. banana peel, bottle...)"/>
-      </div>
-
       <!-- Is this recyclable? -->
       <div class="card mb-12">
         <div class="section-title">🤔 Is This Recyclable?</div>
         <div style="display:flex;gap:8px">
           <input class="form-control" id="checker-input" type="text" placeholder="Type an item..." style="flex:1"/>
           <button id="btn-check-waste" style="background:var(--primary);color:#fff;border-radius:12px;padding:0 16px;font-weight:700;border:none;cursor:pointer;font-size:0.88rem">Check</button>
+        </div>
+        <div class="bb-guide-helper">
+          Check the label code if unsure: <strong>2 = HDPE</strong>, <strong>1 = PET</strong>.
         </div>
         <div id="checker-result"></div>
       </div>
@@ -370,68 +369,70 @@
       <div class="profile-avatar">👩</div>
       <div class="profile-name" id="profile-name">Maria Santos</div>
       <div class="profile-role" id="profile-brgy">Brgy. Holy Spirit, Lipa City</div>
-      <div style="display:flex;gap:16px;justify-content:center;margin-top:14px">
-        <div style="text-align:center">
-          <div style="font-size:1.3rem;font-weight:900;font-family:var(--font-main)" id="profile-pts">1,245</div>
-          <div style="font-size:0.7rem;opacity:0.8">EcoPoints</div>
-        </div>
-        <div style="width:1px;background:rgba(255,255,255,0.3)"></div>
-        <div style="text-align:center">
-          <div style="font-size:1.3rem;font-weight:900;font-family:var(--font-main)" id="profile-streak">7</div>
-          <div style="font-size:0.7rem;opacity:0.8">Day Streak 🔥</div>
-        </div>
-        <div style="width:1px;background:rgba(255,255,255,0.3)"></div>
-        <div style="text-align:center">
-          <div style="font-size:1.3rem;font-weight:900;font-family:var(--font-main)">23</div>
-          <div style="font-size:0.7rem;opacity:0.8">Total Logs</div>
-        </div>
-      </div>
     </div>
 
-    <!-- QR Code -->
-    <div class="qr-code-mock">
-      <div class="section-title" style="text-align:center;justify-content:center">📱 My QR Code</div>
-      <div class="qr-grid" id="qr-grid"></div>
-      <div style="font-size:0.78rem;color:var(--text-muted)">Show this to your waste collector for verification</div>
-    </div>
+    <div class="profile-page-body">
+      <div class="profile-details-card">
+        <div class="section-title">👤 User Details</div>
+        <div class="profile-stats-row">
+          <div class="profile-stat-col">
+            <div class="profile-stat-value" id="profile-pts">1,245</div>
+            <div class="profile-stat-label">EcoPoints</div>
+          </div>
+          <div class="profile-stat-divider"></div>
+          <div class="profile-stat-col">
+            <div class="profile-stat-value" id="profile-streak">7</div>
+            <div class="profile-stat-label">Day Streak 🔥</div>
+          </div>
+          <div class="profile-stat-divider"></div>
+          <div class="profile-stat-col">
+            <div class="profile-stat-value">23</div>
+            <div class="profile-stat-label">Total Logs</div>
+          </div>
+        </div>
+      </div>
 
-    <!-- Badges -->
-    <div style="padding:0 16px">
-      <div class="section-title">🏅 My Badges</div>
-      <div class="badge-grid" id="badges-grid"></div>
-    </div>
+      <!-- Badges -->
+      <div class="profile-section-card">
+        <div class="section-title">🏅 My Badges</div>
+        <div class="badge-grid" id="badges-grid"></div>
+      </div>
 
-    <!-- Menu -->
-    <div style="margin-top:8px;border-top:1px solid var(--border)">
-      <div class="profile-menu-item" onclick="goTo('notifications');renderNotifications()">
-        <div class="pm-icon">🔔</div>
-        <div class="pm-label">Notifications</div>
-        <div class="pm-arrow">›</div>
-      </div>
-      <div class="profile-menu-item" onclick="goTo('education');renderArticles()">
-        <div class="pm-icon">📚</div>
-        <div class="pm-label">Education Center</div>
-        <div class="pm-arrow">›</div>
-      </div>
-      <div class="profile-menu-item" onclick="goTo('leaderboard')">
-        <div class="pm-icon">🏆</div>
-        <div class="pm-label">Leaderboard</div>
-        <div class="pm-arrow">›</div>
-      </div>
-      <div class="profile-menu-item" onclick="goTo('about')">
-        <div class="pm-icon">ℹ️</div>
-        <div class="pm-label">About &amp; Legal (RA 9003)</div>
-        <div class="pm-arrow">›</div>
-      </div>
-      <div class="profile-menu-item" onclick="goTo('xml-viewer')">
-        <div class="pm-icon">📄</div>
-        <div class="pm-label">View Data (XML/XSLT)</div>
-        <div class="pm-arrow">›</div>
-      </div>
-      <div class="profile-menu-item" onclick="logout()" style="color:var(--danger)">
-        <div class="pm-icon">🚪</div>
-        <div class="pm-label" style="color:var(--danger)">Logout</div>
-        <div class="pm-arrow">›</div>
+      <!-- Menu -->
+      <div class="profile-section-card profile-actions-card">
+        <div class="section-title">⚙️ Account & Actions</div>
+        <div class="profile-menu-list">
+          <div class="profile-menu-item" onclick="goTo('notifications');renderNotifications()">
+            <div class="pm-icon">🔔</div>
+            <div class="pm-label">Notifications</div>
+            <div class="pm-arrow">›</div>
+          </div>
+          <div class="profile-menu-item" onclick="goTo('education');renderArticles()">
+            <div class="pm-icon">📚</div>
+            <div class="pm-label">Education Center</div>
+            <div class="pm-arrow">›</div>
+          </div>
+          <div class="profile-menu-item" onclick="goTo('leaderboard')">
+            <div class="pm-icon">🏆</div>
+            <div class="pm-label">Leaderboard</div>
+            <div class="pm-arrow">›</div>
+          </div>
+          <div class="profile-menu-item" onclick="goTo('about')">
+            <div class="pm-icon">ℹ️</div>
+            <div class="pm-label">About &amp; Legal (RA 9003)</div>
+            <div class="pm-arrow">›</div>
+          </div>
+          <div class="profile-menu-item" onclick="goTo('xml-viewer')">
+            <div class="pm-icon">📄</div>
+            <div class="pm-label">View Data (XML/XSLT)</div>
+            <div class="pm-arrow">›</div>
+          </div>
+          <div class="profile-menu-item" onclick="logout()" style="color:var(--danger)">
+            <div class="pm-icon">🚪</div>
+            <div class="pm-label" style="color:var(--danger)">Logout</div>
+            <div class="pm-arrow">›</div>
+          </div>
+        </div>
       </div>
     </div>
     <div style="height:20px"></div>
@@ -888,8 +889,16 @@
         </div>
         <button class="qty-btn" onclick="AppState.logQty=Math.round((AppState.logQty+0.1)*10)/10;document.getElementById('modal-qty').textContent=AppState.logQty.toFixed(1)">+</button>
       </div>
-      <button class="btn btn-primary" onclick="closeModal('log-modal');submitLog()">✅ Submit &amp; Earn EcoPoints</button>
-      <button class="btn btn-ghost" onclick="closeModal('log-modal')">Cancel</button>
+      <div class="form-group">
+        <label for="modal-log-date">Date</label>
+        <input id="modal-log-date" class="form-control" type="date"/>
+      </div>
+      <div class="form-group">
+        <label for="modal-log-photo">Photo (JPG/PNG)</label>
+        <input id="modal-log-photo" class="form-control" type="file" accept="image/jpeg,image/png"/>
+      </div>
+      <button class="btn btn-primary" onclick="submitLog()">✅ Submit &amp; Earn EcoPoints</button>
+      <button class="btn btn-ghost" onclick="cancelLogSubmission()">Cancel</button>
     </div>
   </div>
 

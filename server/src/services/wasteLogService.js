@@ -1,5 +1,15 @@
 import { db } from "../db.js";
 import { toPublicUser, badgeFromPoints } from "./userMapper.js";
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const uploadsDir = path.join(__dirname, "..", "..", "uploads");
+
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 function rowToLog(row) {
   if (!row) return null;
@@ -10,10 +20,12 @@ function rowToLog(row) {
     type: row.waste_type,
     weight: Number(row.weight),
     createdAt: row.created_at,
+    logDate: row.log_date || row.created_at,
     status: row.status === "completed" ? "Completed" : "Pending",
     verifiedBy: row.verifier_code || null,
     completedAt: row.completed_at || null,
-    ecoPointsAwarded: row.eco_points_awarded || 0
+    ecoPointsAwarded: row.eco_points_awarded || 0,
+    photoPath: row.photo_path || null
   };
 }
 
@@ -51,17 +63,42 @@ function nextLogCode() {
   return `LOG${Date.now().toString().slice(-8)}`;
 }
 
-export function createLog(userId, { wasteType, weight, notes }) {
+function persistPhotoDataUrl(photoDataUrl, photoFileName) {
+  if (!photoDataUrl) return null;
+  const match = String(photoDataUrl).match(/^data:(image\/(?:jpeg|png));base64,(.+)$/i);
+  if (!match) {
+    throw new Error("Only JPG and PNG images are allowed.");
+  }
+  const mime = match[1].toLowerCase();
+  const extension = mime === "image/png" ? "png" : "jpg";
+  const buffer = Buffer.from(match[2], "base64");
+  if (buffer.length > 2 * 1024 * 1024) {
+    throw new Error("Image size must be 2MB or less.");
+  }
+
+  const safeBase = String(photoFileName || "waste-photo")
+    .replace(/\.[^.]+$/, "")
+    .replace(/[^a-zA-Z0-9_-]/g, "")
+    .slice(0, 40) || "waste-photo";
+  const fileName = `${Date.now()}-${safeBase}.${extension}`;
+  const fullPath = path.join(uploadsDir, fileName);
+  fs.writeFileSync(fullPath, buffer);
+  return `/uploads/${fileName}`;
+}
+
+export function createLog(userId, { wasteType, weight, notes, logDate, photoDataUrl, photoFileName }) {
   const raw = String(wasteType || "").toLowerCase();
   const wt = raw === "hdpe" || raw === "rec" ? "HDPE" : "PET";
   const w = Math.round(Number(weight) * 100) / 100;
   if (!(w > 0)) throw new Error("Invalid weight");
 
   const log_code = nextLogCode();
+  const normalizedLogDate = logDate ? new Date(logDate).toISOString() : new Date().toISOString();
+  const photoPath = persistPhotoDataUrl(photoDataUrl, photoFileName);
   db.prepare(
-    `INSERT INTO waste_logs (log_code, user_id, waste_type, weight, status, notes)
-     VALUES (?, ?, ?, ?, 'pending', ?)`
-  ).run(log_code, userId, wt, w, notes || null);
+    `INSERT INTO waste_logs (log_code, user_id, waste_type, weight, log_date, status, notes, photo_path)
+     VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`
+  ).run(log_code, userId, wt, w, normalizedLogDate, notes || null, photoPath);
 
   db.prepare(`INSERT INTO notifications (user_id, message) VALUES (?, ?)`).run(
     userId,

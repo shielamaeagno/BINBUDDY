@@ -10,6 +10,14 @@ export const registerValidators = [
     .custom((pw) => isStrongPassword(pw))
     .withMessage(registerPasswordErrorMessage()),
   body("name").trim().isLength({ min: 1, max: 100 }).withMessage("Name is required (1–100 characters)."),
+  body("phoneNumber")
+    .trim()
+    .matches(/^(\+63\d{10}|\d{10,11})$/)
+    .withMessage("Phone number is required and must be numeric (local or +63 format)."),
+  body("address")
+    .trim()
+    .isLength({ min: 1, max: 255 })
+    .withMessage("Address is required."),
   body("role")
     .optional({ values: "falsy" })
     .custom((value) => {
@@ -24,9 +32,9 @@ export function postRegister(req, res) {
   if (!errors.isEmpty()) {
     return res.status(400).json({ ok: false, message: "Invalid input.", errors: errors.array() });
   }
-  const { email, password, name } = req.body;
+  const { email, password, name, phoneNumber, address } = req.body;
   const role = req.body.role != null && String(req.body.role).trim() !== "" ? req.body.role : "household";
-  const result = register({ email, password, name, role });
+  const result = register({ email, password, name, role, phoneNumber, address });
   if (!result.ok) return res.status(400).json(result);
   return res.status(201).json(result);
 }
