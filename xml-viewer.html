@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BinBuddy – XML/XSLT Data Report</title>
+  <style>
+    body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #f5faf5; }
+    #output { }
+    .loader { text-align:center; padding:40px; color:#228B22; font-size:1.1rem; }
+    .back-btn {
+      display:inline-flex; align-items:center; gap:8px;
+      background:#006400; color:#fff; padding:10px 20px;
+      border-radius:10px; text-decoration:none; margin-bottom:20px;
+      font-weight:700; font-size:0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <a href="index.html" class="back-btn">← Back to BinBuddy</a>
+  <div id="output">
+    <div class="loader">♻️ Loading BinBuddy XML Data Report...</div>
+  </div>
+
+  <script>
+    // Apply XSLT transformation in-browser
+    async function applyXSLT() {
+      try {
+        // Fetch XML and XSL
+        const [xmlRes, xslRes] = await Promise.all([
+          fetch('xml/binbuddy-data.xml'),
+          fetch('xsl/binbuddy-transform.xsl')
+        ]);
+        const xmlText = await xmlRes.text();
+        const xslText = await xslRes.text();
+
+        // Parse XML and XSL
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
+        const xslDoc = parser.parseFromString(xslText, 'text/xml');
+
+        // Apply transformation
+        const xsltProcessor = new XSLTProcessor();
+        xsltProcessor.importStylesheet(xslDoc);
+        const resultDoc = xsltProcessor.transformToDocument(xmlDoc);
+
+        // Render result
+        const output = document.getElementById('output');
+        output.innerHTML = '';
+        const importedNode = document.importNode(resultDoc.documentElement, true);
+        output.appendChild(importedNode);
+      } catch (err) {
+        // Fallback: show static HTML representation
+        document.getElementById('output').innerHTML = `
+          <div style="background:white;border-radius:16px;padding:24px;border:1px solid #d4e8d4;box-shadow:0 2px 10px rgba(0,100,0,0.08)">
+            <h2 style="color:#006400;border-bottom:2px solid #90EE90;padding-bottom:10px">♻️ BinBuddy Data Report</h2>
+            <p style="color:#5a7a5a;margin-bottom:20px">Smart Waste Tracking Platform – Quezon City, Philippines</p>
+            <div style="background:#fff8e1;border:1px solid #f5c87a;border-radius:10px;padding:14px;margin-bottom:20px">
+              <strong>ℹ️ Note:</strong> XSLT transformation requires a web server (due to browser CORS policy).
+              Open via <code>http://localhost</code> or use the embedded data below.
+            </div>
+            <h3 style="color:#006400">👥 Users</h3>
+            <table style="width:100%;border-collapse:collapse;font-size:0.88rem;margin-bottom:20px">
+              <tr style="background:#eaf7ea"><th style="padding:10px;text-align:left">ID</th><th>Name</th><th>Role</th><th>Barangay</th><th>EcoPoints</th></tr>
+              <tr><td style="padding:8px">USR001</td><td>Maria Santos</td><td>🏠 household</td><td>Holy Spirit, QC</td><td style="color:#006400;font-weight:700">⭐ 1,245</td></tr>
+              <tr><td style="padding:8px;background:#f9f9f9">USR002</td><td>Juan dela Cruz</td><td>🏠 household</td><td>Holy Spirit, QC</td><td style="color:#006400;font-weight:700">⭐ 1,180</td></tr>
+              <tr><td style="padding:8px">COL001</td><td>Roberto Cruz</td><td>🚛 collector</td><td>Holy Spirit, QC</td><td>—</td></tr>
+              <tr><td style="padding:8px;background:#f9f9f9">ADM001</td><td>HS Barangay Admin</td><td>🏢 admin</td><td>Holy Spirit, QC</td><td>—</td></tr>
+            </table>
+            <h3 style="color:#006400">📦 Waste Logs</h3>
+            <table style="width:100%;border-collapse:collapse;font-size:0.88rem;margin-bottom:20px">
+              <tr style="background:#eaf7ea"><th style="padding:10px;text-align:left">ID</th><th>Type</th><th>Qty</th><th>Date</th><th>Verified</th><th>Pts</th></tr>
+              <tr><td style="padding:8px">LOG001</td><td>🌿 Biodegradable</td><td>1.2 kg</td><td>2026-04-14</td><td style="color:#228B22">✅</td><td style="color:#006400;font-weight:700">+25</td></tr>
+              <tr><td style="padding:8px;background:#f9f9f9">LOG002</td><td>♻️ Recyclable</td><td>0.8 kg</td><td>2026-04-13</td><td style="color:#228B22">✅</td><td style="color:#006400;font-weight:700">+40</td></tr>
+              <tr><td style="padding:8px">LOG003</td><td>🗑️ Residual</td><td>0.5 kg</td><td>2026-04-12</td><td style="color:#e74c3c">❌</td><td style="color:#006400;font-weight:700">+10</td></tr>
+              <tr><td style="padding:8px;background:#f9f9f9">LOG004</td><td>♻️ Recyclable</td><td>2.5 kg</td><td>2026-04-14</td><td style="color:#228B22">✅</td><td style="color:#006400;font-weight:700">+40</td></tr>
+            </table>
+            <h3 style="color:#006400">⭐ Rewards Catalog</h3>
+            <table style="width:100%;border-collapse:collapse;font-size:0.88rem">
+              <tr style="background:#eaf7ea"><th style="padding:10px;text-align:left">Icon</th><th>Name</th><th>Points</th><th>Sponsor</th></tr>
+              <tr><td style="padding:8px">📱</td><td>₱50 Mobile Load</td><td style="color:#006400;font-weight:700">500 pts</td><td>Globe Telecom</td></tr>
+              <tr><td style="padding:8px;background:#f9f9f9">🛒</td><td>SM Voucher ₱100</td><td style="color:#006400;font-weight:700">1,000 pts</td><td>SM Supermalls</td></tr>
+              <tr><td style="padding:8px">☕</td><td>Starbucks Discount</td><td style="color:#006400;font-weight:700">800 pts</td><td>Starbucks PH</td></tr>
+              <tr><td style="padding:8px;background:#f9f9f9">🚌</td><td>Beep Card Reload</td><td style="color:#006400;font-weight:700">600 pts</td><td>AF Payments Inc.</td></tr>
+            </table>
+          </div>
+          <div style="text-align:center;color:#888;font-size:0.78rem;margin-top:20px">BinBuddy – Powerpuff w/ Mojo Jojo | RA 9003 · SDG 12</div>
+        `;
+      }
+    }
+
+    applyXSLT();
+  </script>
+</body>
+</html>

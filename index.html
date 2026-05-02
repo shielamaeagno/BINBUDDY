@@ -1,0 +1,1015 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#006400"/>
+  <title>BinBuddy – Smart Waste Tracking</title>
+  <link rel="stylesheet" href="css/style.css"/>
+  <!-- Favicon emoji -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♻️</text></svg>"/>
+</head>
+<body>
+
+<div id="app">
+  <!-- Pre-auth: splash + login (removed from DOM after successful authentication) -->
+  <div id="mount-login-phase">
+  <!-- ====================================================
+       SPLASH SCREEN
+  ==================================================== -->
+  <section id="screen-splash" class="screen active">
+    <div class="splash-icon">♻️</div>
+    <div class="splash-logo">Bin<span>Buddy</span></div>
+    <div class="splash-tagline">Smart Waste Tracking & Rewards Platform<br/>Lipa City, Philippines</div>
+    <div class="splash-loader">
+      <div class="splash-loader-bar"></div>
+    </div>
+    <div class="splash-sub">Powered by RA 9003 · SDG 12 · Barangay-Driven</div>
+  </section>
+
+  <!-- ====================================================
+       AUTH SCREEN (split layout: brand | forms)
+  ==================================================== -->
+  <section id="screen-auth" class="screen" aria-label="Sign in">
+    <div class="auth-split">
+      <aside class="auth-split-brand">
+        <div class="auth-brand-stack">
+          <img
+            class="auth-brand-logo"
+            src="assets/binbuddy-logo.png"
+            alt="BinBuddy logo"
+          />
+          <h1 class="auth-split-brand-title">BinBuddy</h1>
+          <p class="auth-brand-slogan">SCAN • SORT • EARN</p>
+          <p class="auth-brand-tagline">Smart waste tracking for a cleaner Lipa City</p>
+        </div>
+      </aside>
+      <div class="auth-split-panel">
+        <form class="auth-panel-inner" id="auth-form" novalidate autocomplete="on">
+          <div class="auth-tabs" role="tablist" aria-label="Login or Register">
+            <button type="button" class="auth-tab active" role="tab" aria-selected="true">Login</button>
+            <button type="button" class="auth-tab" role="tab" aria-selected="false">Register</button>
+          </div>
+          <div class="form-group">
+            <label for="auth-email">Email</label>
+            <input id="auth-email" name="email" class="form-control" type="email" inputmode="email" maxlength="254" autocomplete="username" spellcheck="false" placeholder="you@example.com" required/>
+            <p class="field-error" id="auth-email-error" aria-live="polite"></p>
+          </div>
+          <div class="form-group">
+            <label for="auth-password">Password</label>
+            <div class="password-input-wrap">
+              <input id="auth-password" name="password" class="form-control has-toggle" type="password" maxlength="128" autocomplete="current-password" placeholder="Enter password" required/>
+              <button type="button" class="password-toggle" id="auth-password-toggle" aria-label="Show password" aria-pressed="false">👁️</button>
+            </div>
+            <p class="field-error" id="auth-password-error" aria-live="polite"></p>
+          </div>
+          <p class="auth-password-hint" id="auth-password-hint">Use at least 8 characters with letters and numbers.</p>
+          <label class="auth-role-heading">Select your role</label>
+          <div class="role-selector" role="group" aria-label="Account role">
+            <button type="button" class="role-card selected" data-role="household" aria-pressed="true">
+              <span class="role-icon" aria-hidden="true">🏠</span>
+              <span class="role-label">Household</span>
+            </button>
+            <button type="button" class="role-card" data-role="collector" aria-pressed="false">
+              <span class="role-icon" aria-hidden="true">🚛</span>
+              <span class="role-label">Collector</span>
+            </button>
+            <button type="button" class="role-card" data-role="admin" aria-pressed="false">
+              <span class="role-icon" aria-hidden="true">🏢</span>
+              <span class="role-label">Admin</span>
+            </button>
+          </div>
+          <button type="submit" class="btn btn-primary" id="btn-login">Login to BinBuddy</button>
+          <p class="auth-foot-note">🔒 Sessions use signed tokens. Passwords stored hashed.</p>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  </div><!-- /mount-login-phase -->
+
+  <!-- Authenticated app shell (only one phase visible after login — not stacked with login markup) -->
+  <div id="mount-dashboard-phase" hidden aria-hidden="true" inert>
+
+  <!-- ====================================================
+       HOME / DASHBOARD (Household)
+  ==================================================== -->
+  <section id="screen-home" class="screen">
+    <div class="page-header">
+      <div class="page-header-sub">Good morning! 🌿</div>
+      <h1 id="home-greeting-name">Hi, User 👋</h1>
+    </div>
+    <div class="page-content">
+      <!-- Welcome Banner -->
+      <div class="welcome-banner">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start">
+          <div>
+            <h2>Eco Champion 🏆</h2>
+            <p>Brgy. Holy Spirit, Lipa City</p>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:1.8rem;font-weight:900;font-family:var(--font-main)">🔥 7</div>
+            <div style="font-size:0.72rem;opacity:0.8">day streak</div>
+          </div>
+        </div>
+        <div class="ecopoints-badge" id="eco-badge-pts">⭐ 1,245 pts</div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">🌿</div>
+          <div class="stat-value">2.5<span style="font-size:0.8rem">kg</span></div>
+          <div class="stat-label">Biodegradable Today</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">♻️</div>
+          <div class="stat-value">1.3<span style="font-size:0.8rem">kg</span></div>
+          <div class="stat-label">Recyclables Today</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">⭐</div>
+          <div class="stat-value ecopoints-value">1,245</div>
+          <div class="stat-label">EcoPoints</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📦</div>
+          <div class="stat-value">23</div>
+          <div class="stat-label">Total Logs</div>
+        </div>
+      </div>
+
+      <!-- Log Disposal Button -->
+      <button class="log-btn" onclick="openLogModal()">
+        📦 Log Disposal Now
+      </button>
+
+      <!-- Eco Tip -->
+      <div class="eco-tip">
+        <strong>💡 Eco Tip of the Day</strong><br/>
+        <span id="eco-tip-text">Composting food scraps can reduce your household waste by up to 30%!</span>
+      </div>
+
+      <!-- Sponsor Banner -->
+      <div class="sponsor-banner">
+        <div class="sb-icon">🌿</div>
+        <div class="sb-text"><strong>EcoGreen Lipa City</strong><br/>Proper waste disposal keeps our barangay clean!</div>
+        <button class="sb-cta">Ad</button>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="section-title">📋 Recent Activity</div>
+      <div class="card">
+        <div id="recent-logs">
+          <!-- Rendered by JS -->
+        </div>
+        <button class="btn btn-ghost" onclick="goTo('track')" style="font-size:0.85rem">View all logs →</button>
+      </div>
+
+      <!-- Quick Navigate -->
+      <div class="section-title">🚀 Quick Access</div>
+      <div class="stats-grid">
+        <div class="stat-card" onclick="goTo('guide');initGuide()" style="cursor:pointer">
+          <div class="stat-icon">📚</div>
+          <div class="stat-label" style="font-size:0.82rem;font-weight:700">Seg. Guide</div>
+        </div>
+        <div class="stat-card" onclick="goTo('rewards');initRewards()" style="cursor:pointer">
+          <div class="stat-icon">🎁</div>
+          <div class="stat-label" style="font-size:0.82rem;font-weight:700">Rewards</div>
+        </div>
+        <div class="stat-card" onclick="goTo('leaderboard')" style="cursor:pointer">
+          <div class="stat-icon">🏆</div>
+          <div class="stat-label" style="font-size:0.82rem;font-weight:700">Leaderboard</div>
+        </div>
+        <div class="stat-card" onclick="goTo('notifications');renderNotifications()" style="cursor:pointer">
+          <div class="stat-icon">🔔</div>
+          <div class="stat-label" style="font-size:0.82rem;font-weight:700">Alerts</div>
+        </div>
+      </div>
+
+      <!-- National Stats -->
+      <div class="section-title">📊 Metro Manila at a Glance</div>
+      <div class="card">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;text-align:center">
+          <div>
+            <div style="font-size:1.1rem;font-weight:900;font-family:var(--font-main);color:var(--primary)">12M</div>
+            <div style="font-size:0.68rem;color:var(--text-muted);font-weight:600">Households</div>
+          </div>
+          <div>
+            <div style="font-size:1.1rem;font-weight:900;font-family:var(--font-main);color:var(--danger)">9,500T</div>
+            <div style="font-size:0.68rem;color:var(--text-muted);font-weight:600">Waste/Day</div>
+          </div>
+          <div>
+            <div style="font-size:1.1rem;font-weight:900;font-family:var(--font-main);color:var(--warning)">30%</div>
+            <div style="font-size:0.68rem;color:var(--text-muted);font-weight:600">Recycled</div>
+          </div>
+        </div>
+        <p style="font-size:0.75rem;color:var(--text-muted);text-align:center;margin-top:10px">Source: DENR, Metro Manila Data 2025 · RA 9003 Aligned</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================
+       TRACK SCREEN
+  ==================================================== -->
+  <section id="screen-track" class="screen">
+    <div class="page-header">
+      <div class="page-header-sub">📦 Waste Tracking</div>
+      <h1>Log Your Disposal</h1>
+    </div>
+    <div class="page-content">
+      <!-- Method Tabs -->
+      <div class="log-form-tabs">
+        <button class="log-tab active" data-method="manual">✏️ Manual Entry</button>
+        <button class="log-tab" data-method="qr">📱 QR Scanner</button>
+      </div>
+
+      <!-- QR Scanner Panel -->
+      <div id="qr-panel" class="hidden">
+        <div class="qr-scanner">
+          <div class="qr-frame">
+            <div class="qr-scan-line"></div>
+          </div>
+          <p>📷 Simulated camera view<br/>Align QR code within the frame</p>
+        </div>
+        <button class="btn btn-primary" onclick="showToast('✅ QR Code detected! Loading user data...');openLogModal()">
+          🔍 Scan QR Code
+        </button>
+      </div>
+
+      <!-- Manual Log Panel -->
+      <div id="manual-panel">
+        <!-- Waste Type -->
+        <div class="section-title">♻️ Waste Type</div>
+        <div class="waste-chips">
+          <div class="waste-chip bio active" data-type="bio">🌿 Biodegradable</div>
+          <div class="waste-chip rec" data-type="rec">♻️ Recyclable</div>
+          <div class="waste-chip res" data-type="res">🗑️ Residual</div>
+          <div class="waste-chip spc" data-type="spc">⚠️ Special</div>
+        </div>
+
+        <!-- Quantity -->
+        <div class="section-title">⚖️ Quantity</div>
+        <div class="qty-selector mb-16">
+          <button class="qty-btn" id="qty-minus">−</button>
+          <div class="flex-center" style="flex:1;flex-direction:column">
+            <div class="qty-display" id="qty-display">1.0</div>
+            <div class="qty-unit">kilograms (kg)</div>
+          </div>
+          <button class="qty-btn" id="qty-plus">+</button>
+        </div>
+
+        <!-- Notes -->
+        <div class="form-group">
+          <label>Notes (optional)</label>
+          <textarea class="form-control" rows="2" placeholder="e.g. Plastic bottles, food scraps..."></textarea>
+        </div>
+
+        <!-- Photo Upload Mock -->
+        <div style="border:2px dashed var(--border);border-radius:12px;padding:20px;text-align:center;margin-bottom:16px;cursor:pointer;background:#fafffe"
+             onclick="showToast('📷 Camera would open here')">
+          <div style="font-size:2rem">📷</div>
+          <div style="font-size:0.85rem;color:var(--text-muted);margin-top:4px">Tap to add photo proof</div>
+        </div>
+
+        <!-- Submit -->
+        <button class="btn btn-primary" id="btn-submit-log">
+          ✅ Submit Log &amp; Earn Points
+        </button>
+      </div>
+
+      <!-- History -->
+      <div class="section-title" style="margin-top:20px">📋 Disposal History</div>
+      <div class="card">
+        <div id="full-history"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================
+       GUIDE SCREEN
+  ==================================================== -->
+  <section id="screen-guide" class="screen">
+    <div class="page-header">
+      <div class="page-header-sub">📚 Segregation Guide</div>
+      <h1>What Goes Where?</h1>
+    </div>
+    <div class="page-content">
+      <!-- Search -->
+      <div class="guide-search">
+        <span>🔍</span>
+        <input id="guide-search-input" type="text" placeholder="Search item (e.g. banana peel, bottle...)"/>
+      </div>
+
+      <!-- Is this recyclable? -->
+      <div class="card mb-12">
+        <div class="section-title">🤔 Is This Recyclable?</div>
+        <div style="display:flex;gap:8px">
+          <input class="form-control" id="checker-input" type="text" placeholder="Type an item..." style="flex:1"/>
+          <button id="btn-check-waste" style="background:var(--primary);color:#fff;border-radius:12px;padding:0 16px;font-weight:700;border:none;cursor:pointer;font-size:0.88rem">Check</button>
+        </div>
+        <div id="checker-result"></div>
+      </div>
+
+      <!-- Guide Items -->
+      <div class="section-title">📂 Categories</div>
+      <div id="guide-items">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================
+       REWARDS SCREEN
+  ==================================================== -->
+  <section id="screen-rewards" class="screen">
+    <div class="page-header">
+      <div class="page-header-sub">⭐ EcoPoints & Rewards</div>
+      <h1>Earn &amp; Redeem</h1>
+    </div>
+    <div class="page-content">
+      <!-- Points Hero -->
+      <div class="points-hero">
+        <div class="pts-label">Your EcoPoints Balance</div>
+        <div class="pts-value ecopoints-value">1,245</div>
+        <div class="pts-label" style="margin-top:4px">≈ ₱124 value · Brgy. Holy Spirit Rank #1 🏆</div>
+      </div>
+
+      <!-- Tabs for sections -->
+      <div class="log-form-tabs" style="margin-bottom:0">
+        <button class="log-tab active" onclick="showRewardTab('challenges',this)">🎯 Challenges</button>
+        <button class="log-tab" onclick="showRewardTab('catalog',this)">🎁 Rewards</button>
+        <button class="log-tab" onclick="showRewardTab('leaderboard-tab',this)">🏆 Leaderboard</button>
+      </div>
+
+      <!-- Challenges Panel -->
+      <div id="panel-challenges">
+        <div class="section-title" style="margin-top:16px">🎯 Active Challenges</div>
+        <div id="challenges-list"></div>
+      </div>
+
+      <!-- Rewards Catalog Panel -->
+      <div id="panel-catalog" class="hidden">
+        <div class="section-title" style="margin-top:16px">🎁 Rewards Catalog</div>
+        <div class="rewards-grid" id="rewards-grid"></div>
+      </div>
+
+      <!-- Leaderboard Panel -->
+      <div id="panel-leaderboard-tab" class="hidden">
+        <div class="section-title" style="margin-top:16px">🏆 Barangay Leaderboard</div>
+        <div id="leaderboard-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================
+       PROFILE SCREEN
+  ==================================================== -->
+  <section id="screen-profile" class="screen">
+    <div class="profile-hero">
+      <div class="profile-avatar">👩</div>
+      <div class="profile-name" id="profile-name">Maria Santos</div>
+      <div class="profile-role" id="profile-brgy">Brgy. Holy Spirit, Lipa City</div>
+      <div style="display:flex;gap:16px;justify-content:center;margin-top:14px">
+        <div style="text-align:center">
+          <div style="font-size:1.3rem;font-weight:900;font-family:var(--font-main)" id="profile-pts">1,245</div>
+          <div style="font-size:0.7rem;opacity:0.8">EcoPoints</div>
+        </div>
+        <div style="width:1px;background:rgba(255,255,255,0.3)"></div>
+        <div style="text-align:center">
+          <div style="font-size:1.3rem;font-weight:900;font-family:var(--font-main)" id="profile-streak">7</div>
+          <div style="font-size:0.7rem;opacity:0.8">Day Streak 🔥</div>
+        </div>
+        <div style="width:1px;background:rgba(255,255,255,0.3)"></div>
+        <div style="text-align:center">
+          <div style="font-size:1.3rem;font-weight:900;font-family:var(--font-main)">23</div>
+          <div style="font-size:0.7rem;opacity:0.8">Total Logs</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- QR Code -->
+    <div class="qr-code-mock">
+      <div class="section-title" style="text-align:center;justify-content:center">📱 My QR Code</div>
+      <div class="qr-grid" id="qr-grid"></div>
+      <div style="font-size:0.78rem;color:var(--text-muted)">Show this to your waste collector for verification</div>
+    </div>
+
+    <!-- Badges -->
+    <div style="padding:0 16px">
+      <div class="section-title">🏅 My Badges</div>
+      <div class="badge-grid" id="badges-grid"></div>
+    </div>
+
+    <!-- Menu -->
+    <div style="margin-top:8px;border-top:1px solid var(--border)">
+      <div class="profile-menu-item" onclick="goTo('notifications');renderNotifications()">
+        <div class="pm-icon">🔔</div>
+        <div class="pm-label">Notifications</div>
+        <div class="pm-arrow">›</div>
+      </div>
+      <div class="profile-menu-item" onclick="goTo('education');renderArticles()">
+        <div class="pm-icon">📚</div>
+        <div class="pm-label">Education Center</div>
+        <div class="pm-arrow">›</div>
+      </div>
+      <div class="profile-menu-item" onclick="goTo('leaderboard')">
+        <div class="pm-icon">🏆</div>
+        <div class="pm-label">Leaderboard</div>
+        <div class="pm-arrow">›</div>
+      </div>
+      <div class="profile-menu-item" onclick="goTo('about')">
+        <div class="pm-icon">ℹ️</div>
+        <div class="pm-label">About &amp; Legal (RA 9003)</div>
+        <div class="pm-arrow">›</div>
+      </div>
+      <div class="profile-menu-item" onclick="goTo('xml-viewer')">
+        <div class="pm-icon">📄</div>
+        <div class="pm-label">View Data (XML/XSLT)</div>
+        <div class="pm-arrow">›</div>
+      </div>
+      <div class="profile-menu-item" onclick="logout()" style="color:var(--danger)">
+        <div class="pm-icon">🚪</div>
+        <div class="pm-label" style="color:var(--danger)">Logout</div>
+        <div class="pm-arrow">›</div>
+      </div>
+    </div>
+    <div style="height:20px"></div>
+  </section>
+
+  <!-- ====================================================
+       COLLECTOR SCREEN
+  ==================================================== -->
+  <section id="screen-collector" class="screen">
+    <div class="page-header">
+      <div class="page-header-sub">🚛 Waste Collector</div>
+      <h1>Today's Pickups</h1>
+    </div>
+    <div class="page-content">
+      <!-- Collector Stats -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">📋</div>
+          <div class="stat-value">5</div>
+          <div class="stat-label">Pickups Today</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">✅</div>
+          <div class="stat-value">2</div>
+          <div class="stat-label">Verified OK</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">❌</div>
+          <div class="stat-value">1</div>
+          <div class="stat-label">Not Segregated</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">⏳</div>
+          <div class="stat-value">2</div>
+          <div class="stat-label">Pending</div>
+        </div>
+      </div>
+
+      <!-- Search User -->
+      <div class="guide-search mb-12">
+        <span>🔍</span>
+        <input type="text" placeholder="Search household by name or address..."/>
+      </div>
+
+      <!-- QR Scan Button -->
+      <button class="log-btn" onclick="showToast('📷 Opening QR scanner...')" style="margin-bottom:14px">
+        📱 Scan Household QR Code
+      </button>
+
+      <!-- Pickup List -->
+      <div class="section-title">🏠 Pickup List – Brgy. Holy Spirit</div>
+      <div id="pickup-list">
+        <!-- Rendered by JS -->
+      </div>
+
+      <!-- Photo Proof -->
+      <div style="border:2px dashed var(--border);border-radius:12px;padding:20px;text-align:center;margin:14px 0;cursor:pointer;background:#fafffe"
+           onclick="showToast('📷 Camera would open for photo proof')">
+        <div style="font-size:2rem">📷</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);margin-top:4px">Upload photo proof of pickup</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================
+       ADMIN SCREEN
+  ==================================================== -->
+  <section id="screen-admin" class="screen">
+    <div class="page-header">
+      <div class="page-header-sub">🏢 Barangay Admin Dashboard</div>
+      <h1>Brgy. Holy Spirit</h1>
+    </div>
+    <div class="page-content">
+      <!-- KPI Cards -->
+      <div class="admin-kpi">
+        <div class="kpi-card green">
+          <div class="kpi-icon">📦</div>
+          <div class="kpi-value">89.4T</div>
+          <div class="kpi-label">Total Waste Collected</div>
+        </div>
+        <div class="kpi-card blue">
+          <div class="kpi-icon">✅</div>
+          <div class="kpi-value">72%</div>
+          <div class="kpi-label">Segregation Compliance</div>
+        </div>
+        <div class="kpi-card gold">
+          <div class="kpi-icon">♻️</div>
+          <div class="kpi-value">41%</div>
+          <div class="kpi-label">Recycling Rate</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-icon">👥</div>
+          <div class="kpi-value">312</div>
+          <div class="kpi-label">Active Users</div>
+        </div>
+      </div>
+
+      <!-- Chart -->
+      <div class="section-title">📊 Weekly Waste Collection (kg)</div>
+      <div class="card">
+        <div class="admin-chart-bar" id="admin-chart">
+          <!-- Bars rendered below -->
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-muted);text-align:center">April 8–14, 2026 · Brgy. Holy Spirit</div>
+      </div>
+
+      <!-- EcoPoints Distributed -->
+      <div class="card mb-12">
+        <div class="section-title">⭐ EcoPoints Distributed</div>
+        <div style="font-size:2rem;font-weight:900;font-family:var(--font-main);color:var(--primary)">48,750</div>
+        <div style="font-size:0.82rem;color:var(--text-muted)">Total this month · 312 active users</div>
+        <div class="progress-bar" style="margin-top:10px">
+          <div class="progress-fill" style="width:65%"></div>
+        </div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-top:4px">65% of monthly target (75,000 pts)</div>
+      </div>
+
+      <!-- Top Households -->
+      <div class="section-title">🏆 Top Households</div>
+      <div id="admin-users"></div>
+
+      <!-- Admin Tools -->
+      <div class="section-title">🛠️ Admin Tools</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <button class="btn btn-primary" id="btn-export" style="font-size:0.88rem">📊 Export CSV</button>
+        <button class="btn btn-outline" onclick="showToast('📢 Announcement sent to all users!')" style="font-size:0.88rem">📢 Broadcast</button>
+        <button class="btn btn-outline" onclick="showToast('👥 Opening user management...')" style="font-size:0.88rem">👥 Users</button>
+        <button class="btn btn-outline" onclick="showToast('📋 Generating full report...')" style="font-size:0.88rem">📋 Full Report</button>
+      </div>
+
+      <!-- Subscription -->
+      <div class="card card-green">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:0.82rem;opacity:0.85">Current Plan</div>
+            <div style="font-size:1.3rem;font-weight:900;font-family:var(--font-main)">⭐ Premium</div>
+            <div style="font-size:0.78rem;opacity:0.8">Valid until Dec 31, 2026</div>
+          </div>
+          <div style="font-size:2.5rem">🏢</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================
+       COLLECTOR PROFILE SCREEN
+  ==================================================== -->
+  <section id="screen-collector-profile" class="screen">
+    <div class="profile-hero">
+      <div class="profile-avatar">🚛</div>
+      <div class="profile-name">Roberto Cruz</div>
+      <div class="profile-role">Collector · Brgy. Holy Spirit, Lipa City</div>
+    </div>
+    <div style="padding:16px">
+      <div class="card">
+        <div class="section-title">👤 Collector Profile</div>
+        <div style="font-size:0.86rem;color:var(--text-muted);line-height:1.6">
+          <div><strong>Role:</strong> Waste Collector</div>
+          <div><strong>Area:</strong> Brgy. Holy Spirit</div>
+          <div><strong>Status:</strong> Active Duty</div>
+        </div>
+      </div>
+      <div class="profile-menu-item" onclick="logout()" style="color:var(--danger);margin-top:10px;border-radius:12px;border:1px solid var(--border)">
+        <div class="pm-icon">🚪</div>
+        <div class="pm-label" style="color:var(--danger)">Logout</div>
+        <div class="pm-arrow">›</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================
+       ADMIN PROFILE SCREEN
+  ==================================================== -->
+  <section id="screen-admin-profile" class="screen">
+    <div class="profile-hero">
+      <div class="profile-avatar">🏢</div>
+      <div class="profile-name">Brgy. Holy Spirit Admin</div>
+      <div class="profile-role">Administrator · Lipa City</div>
+    </div>
+    <div style="padding:16px">
+      <div class="card">
+        <div class="section-title">👤 Admin Profile</div>
+        <div style="font-size:0.86rem;color:var(--text-muted);line-height:1.6">
+          <div><strong>Role:</strong> Barangay Admin</div>
+          <div><strong>Office:</strong> Brgy. Holy Spirit</div>
+          <div><strong>Plan:</strong> Premium</div>
+        </div>
+      </div>
+      <div class="profile-menu-item" onclick="logout()" style="color:var(--danger);margin-top:10px;border-radius:12px;border:1px solid var(--border)">
+        <div class="pm-icon">🚪</div>
+        <div class="pm-label" style="color:var(--danger)">Logout</div>
+        <div class="pm-arrow">›</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================
+       LEADERBOARD SCREEN
+  ==================================================== -->
+  <section id="screen-leaderboard" class="screen">
+    <div class="page-header">
+      <div class="page-header-sub">🏆 Community</div>
+      <h1>Leaderboard</h1>
+    </div>
+    <div class="page-content">
+      <div class="eco-tip">
+        <strong>🏆 Brgy. Holy Spirit</strong> leads in Lipa City with 72% segregation compliance!
+      </div>
+      <div class="section-title">🌟 Top Eco Champions – April 2026</div>
+      <div id="leaderboard-list">
+        <!-- Rendered by JS on init -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================
+       NOTIFICATIONS SCREEN
+  ==================================================== -->
+  <section id="screen-notifications" class="screen">
+    <div class="page-header">
+      <div class="page-header-sub">🔔 Alerts</div>
+      <h1>Notifications</h1>
+    </div>
+    <div class="page-content">
+      <div id="notif-list"></div>
+    </div>
+  </section>
+
+  <!-- ====================================================
+       EDUCATION SCREEN
+  ==================================================== -->
+  <section id="screen-education" class="screen">
+    <div class="page-header">
+      <div class="page-header-sub">📚 Education</div>
+      <h1>Eco Learning Center</h1>
+    </div>
+    <div class="page-content">
+      <div class="eco-tip">
+        <strong>Did you know?</strong> Metro Manila generates 9,500 tons of waste per day, but only 30% is properly recycled.
+      </div>
+      <div class="section-title">📰 Articles &amp; Guides</div>
+      <div id="articles-list"></div>
+    </div>
+  </section>
+
+  <!-- ====================================================
+       ABOUT / LEGAL SCREEN
+  ==================================================== -->
+  <section id="screen-about" class="screen">
+    <div class="page-header">
+      <div class="page-header-sub">ℹ️ About</div>
+      <h1>About BinBuddy</h1>
+    </div>
+    <div class="page-content">
+      <div class="about-section">
+        <h3>🌿 What is BinBuddy?</h3>
+        <p>BinBuddy is a smart waste tracking and rewards platform designed to help households in Lipa City, Philippines properly segregate their waste and earn EcoPoints for doing so. It connects households, waste collectors, and barangay administrators in one seamless platform.</p>
+      </div>
+      <div class="about-section">
+        <h3>⚖️ Republic Act No. 9003</h3>
+        <p>The Ecological Solid Waste Management Act of 2000 mandates the proper collection, transport, and disposal of solid waste. BinBuddy helps every Filipino household comply with RA 9003 by making waste segregation easy, rewarding, and community-driven.</p>
+        <div>
+          <span class="fact-tag">RA 9003</span>
+          <span class="fact-tag">DENR Compliant</span>
+          <span class="fact-tag">QC-Aligned</span>
+        </div>
+      </div>
+      <div class="about-section">
+        <h3>🌍 SDG 12 – Responsible Consumption &amp; Production</h3>
+        <p>BinBuddy directly supports UN Sustainable Development Goal 12 by promoting responsible waste disposal habits, reducing landfill burden, and increasing the recycling rate in Metro Manila from its current 30% toward the 2030 target of 80%.</p>
+      </div>
+      <div class="about-section">
+        <h3>📊 Philippine Waste Context</h3>
+        <div>
+          <span class="fact-tag">12M Households in Metro Manila</span>
+          <span class="fact-tag">9,500 tons waste/day</span>
+          <span class="fact-tag">Only 30% recycled</span>
+          <span class="fact-tag">Lipa City: 3.1M population</span>
+          <span class="fact-tag">142 Barangays in QC</span>
+        </div>
+      </div>
+      <div class="about-section">
+        <h3>💼 Business Model</h3>
+        <p><strong>Barangay Subscription Plans:</strong> Free, Basic (₱1,500/mo), Premium (₱5,000/mo) with advanced analytics and priority support.<br/><br/>
+        <strong>Sponsorship &amp; Advertising:</strong> Local businesses can advertise on the platform to reach eco-conscious households.<br/><br/>
+        <strong>Recycling Commission Analytics:</strong> Detailed reports for junk shops and recycling partners to optimize operations.</p>
+      </div>
+      <div class="about-section">
+        <h3>👥 Development Team</h3>
+        <p><strong>Powerpuff w/ Mojo Jojo</strong><br/>Technopreneurship Final Project<br/>AY 2025–2026</p>
+      </div>
+      <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.78rem">
+        BinBuddy v1.0 · © 2026 · Made with 💚 for the Philippines
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================
+       XML VIEWER SCREEN
+  ==================================================== -->
+  <section id="screen-xml-viewer" class="screen">
+    <div class="page-header">
+      <div class="page-header-sub">📄 Data Structure</div>
+      <h1>XML / XSLT Viewer</h1>
+    </div>
+    <div class="page-content">
+      <div class="eco-tip">
+        <strong>📄 XML Data</strong> – BinBuddy uses XML to store waste logs, users, and rewards. The XSLT file transforms this data into readable HTML reports.
+      </div>
+
+      <!-- Tabs -->
+      <div class="log-form-tabs" style="margin-bottom:16px">
+        <button class="log-tab active" onclick="showXmlTab('xml-raw',this)">📄 XML</button>
+        <button class="log-tab" onclick="showXmlTab('xsl-view',this)">🔄 XSLT</button>
+        <button class="log-tab" onclick="showXmlTab('sql-view',this)">🗄️ SQL</button>
+      </div>
+
+      <!-- XML Raw View -->
+      <div id="panel-xml-raw">
+        <div class="section-title">📄 Sample: Waste Log XML</div>
+        <div class="xml-viewer">
+<span class="tag">&lt;?xml version="1.0" encoding="UTF-8"?&gt;</span><br/>
+<span class="tag">&lt;binbuddy&gt;</span><br/>
+&nbsp;&nbsp;<span class="tag">&lt;wasteLogs&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;log</span> <span class="attr">id</span>=<span class="val">"LOG001"</span> <span class="attr">userId</span>=<span class="val">"USR001"</span><span class="tag">&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;type&gt;</span>biodegradable<span class="tag">&lt;/type&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;category&gt;</span>Food Scraps<span class="tag">&lt;/category&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;quantity</span> <span class="attr">unit</span>=<span class="val">"kg"</span><span class="tag">&gt;</span>1.2<span class="tag">&lt;/quantity&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;date&gt;</span>2026-04-14<span class="tag">&lt;/date&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;method&gt;</span>manual<span class="tag">&lt;/method&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;verified&gt;</span>true<span class="tag">&lt;/verified&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;ecoPointsEarned&gt;</span>25<span class="tag">&lt;/ecoPointsEarned&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;/log&gt;</span><br/>
+&nbsp;&nbsp;<span class="tag">&lt;/wasteLogs&gt;</span><br/>
+<span class="tag">&lt;/binbuddy&gt;</span>
+        </div>
+        <button class="btn btn-outline" style="margin-top:10px" onclick="showToast('📄 XML file: /xml/binbuddy-data.xml')">View Full XML File</button>
+      </div>
+
+      <!-- XSLT View -->
+      <div id="panel-xsl-view" class="hidden">
+        <div class="section-title">🔄 XSLT Transformation</div>
+        <div class="xml-viewer">
+<span class="tag">&lt;xsl:stylesheet</span> <span class="attr">version</span>=<span class="val">"1.0"</span><span class="tag">&gt;</span><br/>
+&nbsp;&nbsp;<span class="tag">&lt;xsl:template</span> <span class="attr">match</span>=<span class="val">"log"</span><span class="tag">&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;tr&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;td&gt;&lt;xsl:value-of</span> <span class="attr">select</span>=<span class="val">"@id"</span><span class="tag">/&gt;&lt;/td&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;td&gt;&lt;xsl:value-of</span> <span class="attr">select</span>=<span class="val">"type"</span><span class="tag">/&gt;&lt;/td&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;td&gt;&lt;xsl:value-of</span> <span class="attr">select</span>=<span class="val">"quantity"</span><span class="tag">/&gt;&lt;/td&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;td&gt;&lt;xsl:value-of</span> <span class="attr">select</span>=<span class="val">"ecoPointsEarned"</span><span class="tag">/&gt;&lt;/td&gt;</span><br/>
+&nbsp;&nbsp;&nbsp;&nbsp;<span class="tag">&lt;/tr&gt;</span><br/>
+&nbsp;&nbsp;<span class="tag">&lt;/xsl:template&gt;</span><br/>
+<span class="tag">&lt;/xsl:stylesheet&gt;</span>
+        </div>
+        <div style="margin-top:12px;padding:12px;background:#eaf7ea;border-radius:10px;font-size:0.82rem">
+          ✅ The full XSLT file (<strong>/xsl/binbuddy-transform.xsl</strong>) transforms all XML data into an HTML report table showing users, logs, rewards, and barangay stats.
+        </div>
+        <button class="btn btn-outline" style="margin-top:10px" onclick="showToast('🔄 XSLT file: /xsl/binbuddy-transform.xsl')">View Full XSLT File</button>
+      </div>
+
+      <!-- SQL View -->
+      <div id="panel-sql-view" class="hidden">
+        <div class="section-title">🗄️ SQL Database Schema</div>
+        <div class="xml-viewer">
+<span class="tag">CREATE TABLE</span> <span class="attr">waste_logs</span> (<br/>
+&nbsp;&nbsp;<span class="val">log_id</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;VARCHAR(10) PRIMARY KEY,<br/>
+&nbsp;&nbsp;<span class="val">user_id</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;VARCHAR(10) NOT NULL,<br/>
+&nbsp;&nbsp;<span class="val">waste_type</span>&nbsp;&nbsp;ENUM('biodegradable','recyclable','residual','special'),<br/>
+&nbsp;&nbsp;<span class="val">quantity</span>&nbsp;&nbsp;&nbsp;&nbsp;DECIMAL(6,2),<br/>
+&nbsp;&nbsp;<span class="val">log_date</span>&nbsp;&nbsp;&nbsp;&nbsp;DATE,<br/>
+&nbsp;&nbsp;<span class="val">is_verified</span> BOOLEAN DEFAULT FALSE,<br/>
+&nbsp;&nbsp;<span class="val">eco_points</span>&nbsp;&nbsp;INT DEFAULT 0,<br/>
+&nbsp;&nbsp;FOREIGN KEY (<span class="val">user_id</span>) REFERENCES <span class="attr">users</span>(<span class="val">user_id</span>)<br/>
+);<br/><br/>
+<span class="tag">SELECT</span> waste_type, <span class="attr">SUM</span>(quantity)<br/>
+<span class="tag">FROM</span> waste_logs<br/>
+<span class="tag">WHERE</span> user_id = <span class="val">'USR001'</span><br/>
+<span class="tag">GROUP BY</span> waste_type;
+        </div>
+        <div style="margin-top:12px;padding:12px;background:#eaf7ea;border-radius:10px;font-size:0.82rem">
+          ✅ Full schema in <strong>/sql/binbuddy-schema.sql</strong> — includes 7 tables with SELECT, INSERT, UPDATE, DELETE operations and 2 database views.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====================================================
+       BOTTOM NAVIGATION
+  ==================================================== -->
+  <nav class="bottom-nav hidden" id="bottom-nav">
+    <button class="nav-item active" data-nav="home" data-role="household">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">Home</span>
+    </button>
+    <button class="nav-item" data-nav="track" data-role="household">
+      <span class="nav-icon">📦</span>
+      <span class="nav-label">Track</span>
+    </button>
+    <button class="nav-item" data-nav="guide" data-role="household">
+      <span class="nav-icon">📚</span>
+      <span class="nav-label">Guide</span>
+    </button>
+    <button class="nav-item" data-nav="rewards" data-role="household">
+      <span class="nav-icon">⭐</span>
+      <span class="nav-label">Rewards</span>
+    </button>
+    <button class="nav-item" data-nav="profile" data-role="household">
+      <span class="nav-icon">👤</span>
+      <span class="nav-label">Profile</span>
+    </button>
+    <button class="nav-item hidden" data-nav="collector" data-role="collector">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">Home</span>
+    </button>
+    <button class="nav-item hidden" data-nav="collector-profile" data-role="collector">
+      <span class="nav-icon">👤</span>
+      <span class="nav-label">Profile</span>
+    </button>
+    <button class="nav-item hidden" data-nav="admin" data-role="admin">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">Home</span>
+    </button>
+    <button class="nav-item hidden" data-nav="admin-profile" data-role="admin">
+      <span class="nav-icon">👤</span>
+      <span class="nav-label">Profile</span>
+    </button>
+  </nav>
+
+  <!-- ====================================================
+       FLOATING HELP BUTTON
+  ==================================================== -->
+  <button class="help-btn" id="help-btn" title="Help / Demo Tour">❓</button>
+
+  <!-- ====================================================
+       MODALS
+  ==================================================== -->
+
+  <!-- Log Submission Modal -->
+  <div class="modal-overlay" id="log-modal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title">📦 Log Waste Disposal</div>
+      <div class="waste-chips" style="justify-content:center;margin-bottom:16px">
+        <div class="waste-chip bio active" data-type="bio" onclick="selectModalType('bio',this)">🌿 Bio</div>
+        <div class="waste-chip rec" data-type="rec" onclick="selectModalType('rec',this)">♻️ Rec</div>
+        <div class="waste-chip res" data-type="res" onclick="selectModalType('res',this)">🗑️ Res</div>
+        <div class="waste-chip spc" data-type="spc" onclick="selectModalType('spc',this)">⚠️ Spc</div>
+      </div>
+      <div class="qty-selector mb-16">
+        <button class="qty-btn" onclick="AppState.logQty=Math.max(0.1,Math.round((AppState.logQty-0.1)*10)/10);document.getElementById('modal-qty').textContent=AppState.logQty.toFixed(1)">−</button>
+        <div class="flex-center" style="flex:1;flex-direction:column">
+          <div class="qty-display" id="modal-qty">1.0</div>
+          <div class="qty-unit">kg</div>
+        </div>
+        <button class="qty-btn" onclick="AppState.logQty=Math.round((AppState.logQty+0.1)*10)/10;document.getElementById('modal-qty').textContent=AppState.logQty.toFixed(1)">+</button>
+      </div>
+      <button class="btn btn-primary" onclick="closeModal('log-modal');submitLog()">✅ Submit &amp; Earn EcoPoints</button>
+      <button class="btn btn-ghost" onclick="closeModal('log-modal')">Cancel</button>
+    </div>
+  </div>
+
+  <!-- Success Modal -->
+  <div class="modal-overlay" id="success-modal">
+    <div class="modal-sheet" style="text-align:center">
+      <div class="modal-handle"></div>
+      <div style="font-size:3rem;margin-bottom:8px">🎉</div>
+      <div class="modal-title">Great Job!</div>
+      <div id="success-type" style="font-size:1.1rem;font-weight:700;margin-bottom:4px">🌿 Biodegradable</div>
+      <div id="success-qty" style="color:var(--text-muted);font-size:0.9rem;margin-bottom:12px">1.0 kg logged</div>
+      <div id="success-pts" style="font-size:1.8rem;font-weight:900;font-family:var(--font-main);color:var(--primary);margin-bottom:8px">+25 EcoPoints</div>
+      <p style="font-size:0.82rem;color:var(--text-muted)">You saved the planet one log at a time! 🌍</p>
+      <button class="btn btn-primary" style="margin-top:16px" onclick="closeModal('success-modal')">Awesome! ✨</button>
+    </div>
+  </div>
+
+  <!-- Guide Detail Modal -->
+  <div class="modal-overlay" id="guide-modal">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-title" id="guide-modal-title">🌿 Biodegradable</div>
+      <div id="guide-modal-items"></div>
+      <button class="btn btn-ghost" onclick="closeModal('guide-modal')" style="margin-top:8px">Close</button>
+    </div>
+  </div>
+
+  <!-- Help / Tour Modal -->
+  <div class="modal-overlay" id="help-modal">
+    <div class="modal-sheet" style="text-align:center">
+      <div class="modal-handle"></div>
+      <div style="font-size:2.5rem;margin-bottom:8px">🌿</div>
+      <div class="modal-title" id="tour-title">Welcome to BinBuddy!</div>
+      <p style="color:var(--text-muted);font-size:0.88rem;margin-bottom:20px" id="tour-desc">Your smart waste tracking and rewards platform for a cleaner Lipa City.</p>
+      <div style="color:var(--text-muted);font-size:0.78rem;margin-bottom:14px" id="tour-step">1 / 6</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline" id="tour-prev" disabled>← Prev</button>
+        <button class="btn btn-primary" id="tour-next">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================
+       CONFETTI OVERLAY
+  ==================================================== -->
+  <div class="confetti-overlay" id="confetti-overlay"></div>
+
+  <!-- Toast Notification -->
+  <div class="toast" id="toast"></div>
+
+  </div><!-- /mount-dashboard-phase -->
+
+</div><!-- #app -->
+
+<script src="js/app.js"></script>
+<script>
+  /* ---- Admin Chart Render ---- */
+  (function renderAdminChart() {
+    // Triggered when admin screen is shown
+    const data = [
+      { day:'Mon', val:62 },
+      { day:'Tue', val:48 },
+      { day:'Wed', val:75 },
+      { day:'Thu', val:55 },
+      { day:'Fri', val:80 },
+      { day:'Sat', val:35 },
+      { day:'Sun', val:28 },
+    ];
+    const max = Math.max(...data.map(d=>d.val));
+    const chart = document.getElementById('admin-chart');
+    if (!chart) return;
+    chart.innerHTML = data.map(d => `
+      <div class="chart-col">
+        <div class="chart-val">${d.val}</div>
+        <div class="chart-bar" style="height:${(d.val/max)*80}px"></div>
+        <div class="chart-label">${d.day}</div>
+      </div>
+    `).join('');
+  })();
+
+  /* ---- Reward Tab Switch ---- */
+  function showRewardTab(panel, btn) {
+    ['challenges','catalog','leaderboard-tab'].forEach(id => {
+      const el = document.getElementById(`panel-${id}`);
+      if(el) el.classList.toggle('hidden', id !== panel);
+    });
+    document.querySelectorAll('.log-form-tabs .log-tab').forEach(b => b.classList.remove('active'));
+    if(btn) btn.classList.add('active');
+    if(panel === 'leaderboard-tab') renderLeaderboard();
+  }
+
+  /* ---- XML Tab Switch ---- */
+  function showXmlTab(panel, btn) {
+    ['xml-raw','xsl-view','sql-view'].forEach(id => {
+      const el = document.getElementById(`panel-${id}`);
+      if(el) el.classList.toggle('hidden', id !== panel);
+    });
+    document.querySelectorAll('#screen-xml-viewer .log-tab').forEach(b => b.classList.remove('active'));
+    if(btn) btn.classList.add('active');
+  }
+
+  /* ---- Modal Waste Type Select ---- */
+  function selectModalType(type, el) {
+    document.querySelectorAll('#log-modal .waste-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    AppState.logType = type;
+  }
+
+  /* ---- Init Leaderboard screen ---- */
+  document.addEventListener('DOMContentLoaded', () => {
+    // Pre-render leaderboard for leaderboard screen
+    const origGoTo = window.goTo;
+    // Render leaderboard on leaderboard screen
+    const observer = new MutationObserver(() => {
+      const lb = document.getElementById('screen-leaderboard');
+      if(lb && lb.classList.contains('active')) renderLeaderboard();
+    });
+    document.querySelectorAll('#mount-dashboard-phase .screen').forEach(s => observer.observe(s, { attributes: true }));
+    // Admin chart re-render when admin is shown
+  });
+</script>
+</body>
+</html>
