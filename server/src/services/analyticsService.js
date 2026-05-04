@@ -3,12 +3,14 @@ import { db } from "../db.js";
 export function adminMetrics() {
   const totalLogs = db.prepare(`SELECT COUNT(*) AS c FROM waste_logs`).get().c;
   const completed = db.prepare(`SELECT COUNT(*) AS c FROM waste_logs WHERE status = 'completed'`).get().c;
-  const pending = totalLogs - completed;
+  const pending = db.prepare(`SELECT COUNT(*) AS c FROM waste_logs WHERE status = 'pending'`).get().c;
+  const rejected = db.prepare(`SELECT COUNT(*) AS c FROM waste_logs WHERE status = 'rejected'`).get().c;
   const kgRow = db
     .prepare(`SELECT COALESCE(SUM(weight), 0) AS kg FROM waste_logs WHERE status = 'completed'`)
     .get();
   const totalCollectedKg = Number(Number(kgRow.kg).toFixed(1));
-  const compliance = totalLogs > 0 ? Math.round((completed / totalLogs) * 100) : 0;
+  const decided = completed + pending + rejected;
+  const compliance = decided > 0 ? Math.round((completed / decided) * 100) : 0;
   const ptsRow = db.prepare(`SELECT COALESCE(SUM(eco_points_awarded), 0) AS p FROM waste_logs`).get();
   const ecoPointsDistributed = ptsRow.p || 0;
   const households = db.prepare(`SELECT COUNT(*) AS c FROM users WHERE role = 'household'`).get().c;
@@ -31,6 +33,7 @@ export function adminMetrics() {
     totalLogs,
     completedLogs: completed,
     pendingLogs: pending,
+    rejectedLogs: rejected,
     totalCollectedKg,
     compliance,
     ecoPointsDistributed,

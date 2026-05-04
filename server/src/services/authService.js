@@ -41,7 +41,7 @@ function nextUserCode(role) {
   return `${prefix}${String(n + 1).padStart(3, "0")}`;
 }
 
-export function register({ email, password, name, role: roleRaw, phoneNumber, address }) {
+export function register({ email, password, name, role: roleRaw, phoneNumber, address, gender: genderRaw }) {
   const role = normalizeRoleInput(roleRaw);
   if (!role || !isCanonicalRole(role)) {
     authLog("register_rejected", { reason: "invalid_role", roleRaw: typeof roleRaw === "string" ? roleRaw.slice(0, 32) : roleRaw });
@@ -59,12 +59,29 @@ export function register({ email, password, name, role: roleRaw, phoneNumber, ad
   const level = role === "household" ? badgeFromPoints(0) : null;
   const normalizedPhone = String(phoneNumber || "").trim();
   const normalizedAddress = String(address || "").trim();
+  const genderNorm = String(genderRaw || "").trim().toLowerCase();
+  const gender = genderNorm === "male" || genderNorm === "female" ? genderNorm : "";
+  if (!gender) {
+    authLog("register_rejected", { reason: "invalid_gender" });
+    return { ok: false, message: "Gender is required (Male or Female)." };
+  }
   const barangay = barangayFromAddress(normalizedAddress);
 
   db.prepare(
-    `INSERT INTO users (user_code, full_name, email, password_hash, phone_number, address, role, eco_points, streak_days, level, barangay)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)`
-  ).run(user_code, full_name, email.trim().toLowerCase(), password_hash, normalizedPhone, normalizedAddress, role, level, barangay);
+    `INSERT INTO users (user_code, full_name, email, password_hash, phone_number, address, gender, role, eco_points, streak_days, level, barangay)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)`
+  ).run(
+    user_code,
+    full_name,
+    email.trim().toLowerCase(),
+    password_hash,
+    normalizedPhone,
+    normalizedAddress,
+    gender,
+    role,
+    level,
+    barangay
+  );
 
   const user = db.prepare("SELECT * FROM users WHERE user_code = ?").get(user_code);
   authLog("register_ok", { user_code, role });

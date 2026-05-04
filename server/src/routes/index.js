@@ -18,7 +18,14 @@ import {
   getLeaderboardApi
 } from "../controllers/wasteLogController.js";
 import { getRewards, redeemValidators, postRedeem } from "../controllers/rewardController.js";
-import { getAnalytics, exportCsv } from "../controllers/adminController.js";
+import {
+  getAnalytics,
+  exportCsv,
+  listAdminUsers,
+  getAdminReport,
+  postAdminBroadcast,
+  broadcastValidators
+} from "../controllers/adminController.js";
 
 const r = Router();
 
@@ -39,6 +46,9 @@ r.post("/rewards/redeem", requireAuth, redeemValidators, postRedeem);
 
 r.get("/admin/analytics", requireAuth, requireRoles("admin"), getAnalytics);
 r.get("/admin/export.csv", requireAuth, requireRoles("admin"), exportCsv);
+r.get("/admin/users", requireAuth, requireRoles("admin"), listAdminUsers);
+r.get("/admin/report", requireAuth, requireRoles("admin"), getAdminReport);
+r.post("/admin/broadcast", requireAuth, requireRoles("admin"), broadcastValidators, postAdminBroadcast);
 
 r.use((req, res) => {
   res.status(404).json({ ok: false, message: "Not found." });

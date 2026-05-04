@@ -18,6 +18,10 @@ export const registerValidators = [
     .trim()
     .isLength({ min: 1, max: 255 })
     .withMessage("Address is required."),
+  body("gender")
+    .trim()
+    .isIn(["male", "female"])
+    .withMessage("Gender must be male or female."),
   body("role")
     .optional({ values: "falsy" })
     .custom((value) => {
@@ -32,9 +36,9 @@ export function postRegister(req, res) {
   if (!errors.isEmpty()) {
     return res.status(400).json({ ok: false, message: "Invalid input.", errors: errors.array() });
   }
-  const { email, password, name, phoneNumber, address } = req.body;
+  const { email, password, name, phoneNumber, address, gender } = req.body;
   const role = req.body.role != null && String(req.body.role).trim() !== "" ? req.body.role : "household";
-  const result = register({ email, password, name, role, phoneNumber, address });
+  const result = register({ email, password, name, role, phoneNumber, address, gender });
   if (!result.ok) return res.status(400).json(result);
   return res.status(201).json(result);
 }

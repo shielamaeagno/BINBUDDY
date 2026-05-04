@@ -10,14 +10,15 @@ export function toPublicUser(row) {
     ecoPoints: row.eco_points,
     streak: row.streak_days,
     badge: row.level || "Eco Starter",
-    barangay: row.barangay || "Holy Spirit"
+    barangay: row.barangay || "Holy Spirit",
+    gender: row.gender || ""
   };
 }
 
 const BADGE_LEVELS = [
   { min: 0, label: "Eco Starter" },
   { min: 100, label: "Eco Supporter" },
-  { min: 300, label: "Eco Champion" },
+  { min: 300, label: "BinBuddy" },
   { min: 700, label: "Eco Hero" }
 ];
 

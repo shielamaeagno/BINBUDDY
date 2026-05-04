@@ -76,6 +76,15 @@
               <input id="auth-address" name="address" class="form-control" type="text" maxlength="255" autocomplete="street-address" placeholder="Enter your complete address"/>
               <p class="field-error" id="auth-address-error" aria-live="polite"></p>
             </div>
+            <div class="form-group auth-register-only">
+              <label for="auth-gender">Gender</label>
+              <select id="auth-gender" name="gender" class="form-control" autocomplete="sex">
+                <option value="">Select gender</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+              </select>
+              <p class="field-error" id="auth-gender-error" aria-live="polite"></p>
+            </div>
             <p class="auth-password-hint" id="auth-password-hint">Use at least 8 characters with letters and numbers.</p>
             <label class="auth-role-heading">Select your role</label>
             <div class="role-selector" role="group" aria-label="Account role">
@@ -110,7 +119,7 @@
   ==================================================== -->
   <section id="screen-home" class="screen">
     <div class="page-header">
-      <div class="page-header-sub">Good morning! 🌿</div>
+      <div class="page-header-sub">Welcome 🌿</div>
       <div class="home-header-row">
         <h1 id="home-greeting-name">Hi, User 👋</h1>
         <button type="button" class="home-alert-right" id="home-alert-right" onclick="goTo('notifications');renderNotifications()" aria-label="Alerts">
@@ -123,7 +132,7 @@
       <div class="welcome-banner">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
-            <h2>Eco Champion 🏆</h2>
+            <h2>BinBuddy 🏆</h2>
             <p id="home-user-address">No address provided</p>
           </div>
           <div style="text-align:right">
@@ -358,19 +367,12 @@
 
       <!-- Tabs for sections -->
       <div class="log-form-tabs" style="margin-bottom:0">
-        <button class="log-tab active" onclick="showRewardTab('challenges',this)">🎯 Challenges</button>
-        <button class="log-tab" onclick="showRewardTab('catalog',this)">🎁 Rewards</button>
+        <button class="log-tab active" onclick="showRewardTab('catalog',this)">🎁 Rewards</button>
         <button class="log-tab" onclick="showRewardTab('leaderboard-tab',this)">🏆 Leaderboard</button>
       </div>
 
-      <!-- Challenges Panel -->
-      <div id="panel-challenges">
-        <div class="section-title" style="margin-top:16px">🎯 Active Challenges</div>
-        <div id="challenges-list"></div>
-      </div>
-
       <!-- Rewards Catalog Panel -->
-      <div id="panel-catalog" class="hidden">
+      <div id="panel-catalog">
         <div class="section-title" style="margin-top:16px">🎁 Rewards Catalog</div>
         <div class="rewards-grid" id="rewards-grid"></div>
       </div>
@@ -388,7 +390,7 @@
   ==================================================== -->
   <section id="screen-profile" class="screen">
     <div class="profile-hero">
-      <div class="profile-avatar">👩</div>
+      <div class="profile-avatar" id="profile-avatar" aria-hidden="true">👩</div>
       <div class="profile-name" id="profile-name">Maria Santos</div>
       <div class="profile-role" id="profile-brgy">No address provided</div>
     </div>
@@ -427,11 +429,6 @@
           <div class="profile-menu-item" onclick="goTo('notifications');renderNotifications()">
             <div class="pm-icon">🔔</div>
             <div class="pm-label">Notifications</div>
-            <div class="pm-arrow">›</div>
-          </div>
-          <div class="profile-menu-item" onclick="goTo('education');renderArticles()">
-            <div class="pm-icon">📚</div>
-            <div class="pm-label">Education Center</div>
             <div class="pm-arrow">›</div>
           </div>
           <div class="profile-menu-item" onclick="goTo('leaderboard')">
@@ -499,11 +496,6 @@
         <input type="text" placeholder="Search household by name or address..."/>
       </div>
 
-      <!-- QR Scan Button -->
-      <button class="log-btn" onclick="showToast('📷 Opening QR scanner...')" style="margin-bottom:14px">
-        📱 Scan Household QR Code
-      </button>
-
       <!-- Pickup List -->
       <div class="section-title">🏠 Pickup List – Brgy. Holy Spirit</div>
       <div id="pickup-list">
@@ -516,6 +508,23 @@
         <div style="font-size:2rem">📷</div>
         <div style="font-size:0.85rem;color:var(--text-muted);margin-top:4px">Upload photo proof of pickup</div>
       </div>
+    </div>
+  </section>
+
+  <!-- ====================================================
+       COLLECTOR HISTORY (verified logs — read-only)
+  ==================================================== -->
+  <section id="screen-collector-history" class="screen">
+    <div class="page-header">
+      <div class="page-header-sub">📋 Waste History</div>
+      <h1>Verified Collections</h1>
+    </div>
+    <div class="page-content">
+      <div class="eco-tip">
+        <strong>Read-only</strong> · Showing verified logs for <span id="collector-history-year-label"></span>. Updates sync automatically when households submit logs or collectors verify pickups.
+      </div>
+      <div class="section-title">✅ Verified logs</div>
+      <div id="collector-history-page-list"></div>
     </div>
   </section>
 
@@ -579,23 +588,12 @@
       <!-- Admin Tools -->
       <div class="section-title">🛠️ Admin Tools</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-        <button class="btn btn-primary" id="btn-export" style="font-size:0.88rem">📊 Export CSV</button>
-        <button class="btn btn-outline" onclick="showToast('📢 Announcement sent to all users!')" style="font-size:0.88rem">📢 Broadcast</button>
-        <button class="btn btn-outline" onclick="showToast('👥 Opening user management...')" style="font-size:0.88rem">👥 Users</button>
-        <button class="btn btn-outline" onclick="showToast('📋 Generating full report...')" style="font-size:0.88rem">📋 Full Report</button>
+        <button type="button" class="btn btn-primary" id="btn-export" style="font-size:0.88rem">📊 Export CSV</button>
+        <button type="button" class="btn btn-outline" id="btn-admin-broadcast" style="font-size:0.88rem">📢 Broadcast</button>
+        <button type="button" class="btn btn-outline" id="btn-admin-users" style="font-size:0.88rem">👥 Users</button>
+        <button type="button" class="btn btn-outline" id="btn-admin-report" style="font-size:0.88rem">📋 Full Report</button>
       </div>
-
-      <!-- Subscription -->
-      <div class="card card-green">
-        <div style="display:flex;align-items:center;justify-content:space-between">
-          <div>
-            <div style="font-size:0.82rem;opacity:0.85">Current Plan</div>
-            <div style="font-size:1.3rem;font-weight:900;font-family:var(--font-main)">⭐ Premium</div>
-            <div style="font-size:0.78rem;opacity:0.8">Valid until Dec 31, 2026</div>
-          </div>
-          <div style="font-size:2.5rem">🏢</div>
-        </div>
-      </div>
+      <div id="admin-tools-detail"></div>
     </div>
   </section>
 
@@ -616,6 +614,11 @@
           <div><strong>Area:</strong> Brgy. Holy Spirit</div>
           <div><strong>Status:</strong> Active Duty</div>
         </div>
+      </div>
+      <div class="card" style="margin-top:14px">
+        <div class="section-title">📋 My verified pickups</div>
+        <p style="font-size:0.78rem;color:var(--text-muted);margin:0 0 10px">Logs you verified (same data as History · read-only).</p>
+        <div id="collector-profile-history-list"></div>
       </div>
       <div class="profile-menu-item" onclick="logout()" style="color:var(--danger);margin-top:10px;border-radius:12px;border:1px solid var(--border)">
         <div class="pm-icon">🚪</div>
@@ -640,7 +643,6 @@
         <div style="font-size:0.86rem;color:var(--text-muted);line-height:1.6">
           <div><strong>Role:</strong> Barangay Admin</div>
           <div><strong>Office:</strong> Brgy. Holy Spirit</div>
-          <div><strong>Plan:</strong> Premium</div>
         </div>
       </div>
       <div class="profile-menu-item" onclick="logout()" style="color:var(--danger);margin-top:10px;border-radius:12px;border:1px solid var(--border)">
@@ -663,7 +665,7 @@
       <div class="eco-tip">
         <strong>🏆 Brgy. Holy Spirit</strong> leads in Lipa City with 72% segregation compliance!
       </div>
-      <div class="section-title">🌟 Top Eco Champions – April 2026</div>
+      <div class="section-title">🌟 Top BinBuddy – April 2026</div>
       <div id="leaderboard-list">
         <!-- Rendered by JS on init -->
       </div>
@@ -680,23 +682,6 @@
     </div>
     <div class="page-content">
       <div id="notif-list"></div>
-    </div>
-  </section>
-
-  <!-- ====================================================
-       EDUCATION SCREEN
-  ==================================================== -->
-  <section id="screen-education" class="screen">
-    <div class="page-header">
-      <div class="page-header-sub">📚 Education</div>
-      <h1>Eco Learning Center</h1>
-    </div>
-    <div class="page-content">
-      <div class="eco-tip">
-        <strong>Did you know?</strong> Metro Manila generates 9,500 tons of waste per day, but only 30% is properly recycled.
-      </div>
-      <div class="section-title">📰 Articles &amp; Guides</div>
-      <div id="articles-list"></div>
     </div>
   </section>
 
@@ -851,7 +836,7 @@
     </button>
     <button class="nav-item" data-nav="track" data-role="household">
       <span class="nav-icon">📦</span>
-      <span class="nav-label">Track</span>
+      <span class="nav-label">Log Waste</span>
     </button>
     <button class="nav-item" data-nav="guide" data-role="household">
       <span class="nav-icon">📚</span>
@@ -868,6 +853,10 @@
     <button class="nav-item hidden" data-nav="collector" data-role="collector">
       <span class="nav-icon">🏠</span>
       <span class="nav-label">Home</span>
+    </button>
+    <button class="nav-item hidden" data-nav="collector-history" data-role="collector">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">History</span>
     </button>
     <button class="nav-item hidden" data-nav="collector-profile" data-role="collector">
       <span class="nav-icon">👤</span>
@@ -1003,7 +992,7 @@
 
   /* ---- Reward Tab Switch ---- */
   function showRewardTab(panel, btn) {
-    ['challenges','catalog','leaderboard-tab'].forEach(id => {
+    ['catalog','leaderboard-tab'].forEach(id => {
       const el = document.getElementById(`panel-${id}`);
       if(el) el.classList.toggle('hidden', id !== panel);
     });

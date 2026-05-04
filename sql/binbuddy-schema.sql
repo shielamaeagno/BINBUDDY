@@ -168,11 +168,11 @@ CREATE TABLE IF NOT EXISTS announcements (
 -- INSERT: Seed Data - Users
 -- ============================================
 INSERT INTO users (user_id, full_name, email, mobile, password_hash, role, barangay, city, eco_points, streak_days, level, is_verified) VALUES
-('USR001', 'Maria Santos',        'maria@email.com',          '09171234567', SHA2('password123', 256), 'household', 'Holy Spirit',  'Quezon City', 1245, 7, 'Eco Champion',  TRUE),
+('USR001', 'Maria Santos',        'maria@email.com',          '09171234567', SHA2('password123', 256), 'household', 'Holy Spirit',  'Quezon City', 1245, 7, 'BinBuddy',  TRUE),
 ('USR002', 'Juan dela Cruz',      'juan@email.com',           '09181234567', SHA2('password123', 256), 'household', 'Holy Spirit',  'Quezon City', 1180, 5, 'Green Warrior', TRUE),
 ('USR003', 'Ana Reyes',           'ana@email.com',            '09191234567', SHA2('password123', 256), 'household', 'Batasan Hills','Quezon City', 1050, 4, 'Green Warrior', TRUE),
 ('USR004', 'Pedro Lim',           'pedro@email.com',          '09201234567', SHA2('password123', 256), 'household', 'Payatas',      'Quezon City',  980, 3, 'Eco Starter',   FALSE),
-('USR005', 'Rosa Fernandez',      'rosa@email.com',           '09211234567', SHA2('password123', 256), 'household', 'Holy Spirit',  'Quezon City',  870, 6, 'Eco Champion',  TRUE),
+('USR005', 'Rosa Fernandez',      'rosa@email.com',           '09211234567', SHA2('password123', 256), 'household', 'Holy Spirit',  'Quezon City',  870, 6, 'BinBuddy',  TRUE),
 ('COL001', 'Roberto Cruz',        'roberto@qcgov.ph',         '09221234567', SHA2('password123', 256), 'collector', 'Holy Spirit',  'Quezon City',    0, 0, NULL,            TRUE),
 ('ADM001', 'HS Barangay Admin',   'admin@holyspirit.qc.gov.ph','09231234567',SHA2('admin2026',   256), 'admin',     'Holy Spirit',  'Quezon City',    0, 0, NULL,            TRUE);
 
@@ -355,7 +355,7 @@ WHERE log_id = 'LOG003';
 UPDATE users
 SET level = CASE
     WHEN eco_points >= 2000 THEN 'Eco Legend'
-    WHEN eco_points >= 1000 THEN 'Eco Champion'
+    WHEN eco_points >= 1000 THEN 'BinBuddy'
     WHEN eco_points >= 500  THEN 'Green Warrior'
     WHEN eco_points >= 100  THEN 'Eco Starter'
     ELSE 'Newcomer'

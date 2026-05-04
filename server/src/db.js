@@ -30,6 +30,15 @@ function ensureUserColumns() {
   if (!colNames.has("address")) {
     db.exec("ALTER TABLE users ADD COLUMN address TEXT NOT NULL DEFAULT ''");
   }
+  if (!colNames.has("gender")) {
+    db.exec("ALTER TABLE users ADD COLUMN gender TEXT NOT NULL DEFAULT ''");
+    try {
+      db.prepare("UPDATE users SET gender = 'female' WHERE user_code = 'USR001'").run();
+      db.prepare("UPDATE users SET gender = 'male' WHERE user_code IN ('COL001','ADM001')").run();
+    } catch {
+      /* ignore if seed users differ */
+    }
+  }
 }
 
 ensureUserColumns();
@@ -47,6 +56,44 @@ function ensureWasteLogColumns() {
 
 ensureWasteLogColumns();
 
+/** SQLite cannot ALTER CHECK; rebuild table once to allow `rejected` status. */
+function migrateWasteLogsAllowRejected() {
+  const tbl = db.prepare("SELECT sql FROM sqlite_master WHERE type='table' AND name='waste_logs'").get();
+  if (!tbl || !tbl.sql || /'rejected'/i.test(tbl.sql)) return;
+  db.exec("PRAGMA foreign_keys=OFF;");
+  db.exec("BEGIN IMMEDIATE;");
+  db.exec(`
+    CREATE TABLE waste_logs__bb_migrate (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      log_code TEXT UNIQUE NOT NULL,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      waste_type TEXT NOT NULL CHECK (waste_type IN ('PET', 'HDPE')),
+      weight REAL NOT NULL,
+      log_date TEXT,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'rejected')),
+      notes TEXT,
+      photo_path TEXT,
+      verified_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      eco_points_awarded INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      completed_at TEXT
+    );
+    INSERT INTO waste_logs__bb_migrate (
+      id, log_code, user_id, waste_type, weight, log_date, status, notes, photo_path, verified_by, eco_points_awarded, created_at, completed_at
+    )
+    SELECT id, log_code, user_id, waste_type, weight, log_date, status, notes, photo_path, verified_by, eco_points_awarded, created_at, completed_at
+    FROM waste_logs;
+    DROP TABLE waste_logs;
+    ALTER TABLE waste_logs__bb_migrate RENAME TO waste_logs;
+  `);
+  db.exec("CREATE INDEX IF NOT EXISTS idx_waste_logs_user ON waste_logs(user_id);");
+  db.exec("CREATE INDEX IF NOT EXISTS idx_waste_logs_status ON waste_logs(status);");
+  db.exec("COMMIT;");
+  db.exec("PRAGMA foreign_keys=ON;");
+}
+
+migrateWasteLogsAllowRejected();
+
 function seedIfEmpty() {
   const count = db.prepare("SELECT COUNT(*) AS c FROM users").get().c;
   if (count > 0) return;
@@ -54,8 +101,8 @@ function seedIfEmpty() {
   const hash = (p) => bcrypt.hashSync(p, 10);
 
   const insertUser = db.prepare(`
-    INSERT INTO users (user_code, full_name, email, password_hash, phone_number, address, role, eco_points, streak_days, level, barangay)
-    VALUES (@user_code, @full_name, @email, @password_hash, @phone_number, @address, @role, @eco_points, @streak_days, @level, @barangay)
+    INSERT INTO users (user_code, full_name, email, password_hash, phone_number, address, gender, role, eco_points, streak_days, level, barangay)
+    VALUES (@user_code, @full_name, @email, @password_hash, @phone_number, @address, @gender, @role, @eco_points, @streak_days, @level, @barangay)
   `);
 
   insertUser.run({
@@ -65,10 +112,11 @@ function seedIfEmpty() {
     password_hash: hash("password123"),
     phone_number: "09171234567",
     address: "Brgy. Holy Spirit, Lipa City",
+    gender: "female",
     role: "household",
     eco_points: 1245,
     streak_days: 7,
-    level: "Eco Champion",
+    level: "Eco Hero",
     barangay: "Holy Spirit"
   });
   insertUser.run({
@@ -78,6 +126,7 @@ function seedIfEmpty() {
     password_hash: hash("password123"),
     phone_number: "09171230000",
     address: "Brgy. Holy Spirit, Lipa City",
+    gender: "male",
     role: "collector",
     eco_points: 0,
     streak_days: 0,
@@ -91,6 +140,7 @@ function seedIfEmpty() {
     password_hash: hash("password123"),
     phone_number: "09179990000",
     address: "Brgy. Holy Spirit, Lipa City",
+    gender: "male",
     role: "admin",
     eco_points: 0,
     streak_days: 0,
@@ -110,6 +160,11 @@ function seedIfEmpty() {
     INSERT INTO waste_logs (log_code, user_id, waste_type, weight, status, eco_points_awarded)
     VALUES ('LOG002', ?, 'HDPE', 0.8, 'pending', 0)
   `).run(u1.id);
+
+  db.prepare(`
+    INSERT INTO waste_logs (log_code, user_id, waste_type, weight, status, verified_by, eco_points_awarded)
+    VALUES ('LOG003', ?, 'PET', 0.5, 'rejected', ?, 0)
+  `).run(u1.id, col.id);
 
   db.prepare(`
     INSERT INTO rewards (reward_code, name, display_label, points_required, category) VALUES

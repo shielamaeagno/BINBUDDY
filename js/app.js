@@ -38,6 +38,20 @@ function validateRegisterAddressClient(address) {
   return "";
 }
 
+function validateRegisterGenderClient(gender) {
+  const g = String(gender || "").trim().toLowerCase();
+  if (g !== "male" && g !== "female") return "Please select your gender (Male or Female).";
+  return "";
+}
+
+function profileAvatarEmoji(user) {
+  if (!user) return "👤";
+  const g = String(user.gender || "").trim().toLowerCase();
+  if (g === "male") return "👨";
+  if (g === "female") return "👩";
+  return "👤";
+}
+
 const NO_ADDRESS_LABEL = "No address provided";
 
 function extractBarangaySegment(address) {
@@ -294,18 +308,17 @@ const ROLE_ALLOWED_SCREENS = {
     "profile",
     "leaderboard",
     "notifications",
-    "education",
     "about",
     "xml-viewer"
   ]),
-  collector: new Set(["collector", "collector-profile"]),
+  collector: new Set(["collector", "collector-history", "collector-profile"]),
   admin: new Set(["admin", "admin-profile"])
 };
 
 const BADGE_LEVELS = [
   { min: 0, label: "Eco Starter" },
   { min: 100, label: "Eco Supporter" },
-  { min: 300, label: "Eco Champion" },
+  { min: 300, label: "BinBuddy" },
   { min: 700, label: "Eco Hero" }
 ];
 
@@ -420,6 +433,98 @@ function formatDateTime(iso) {
   return new Date(iso).toLocaleString();
 }
 
+function logReferenceInstant(log) {
+  return new Date(log.logDate || log.createdAt);
+}
+
+function logCalendarYear(log) {
+  const d = logReferenceInstant(log);
+  return Number.isNaN(d.getTime()) ? new Date().getFullYear() : d.getFullYear();
+}
+
+function isLogInCalendarYear(log, year) {
+  return logCalendarYear(log) === year;
+}
+
+function isLogSameLocalCalendarDay(log, refDate = new Date()) {
+  const d = logReferenceInstant(log);
+  if (Number.isNaN(d.getTime())) return false;
+  return (
+    d.getFullYear() === refDate.getFullYear() &&
+    d.getMonth() === refDate.getMonth() &&
+    d.getDate() === refDate.getDate()
+  );
+}
+
+function collectorYearlyLogs(logs, year = new Date().getFullYear()) {
+  return logs.filter(l => isLogInCalendarYear(l, year));
+}
+
+function computeCollectorDashboardStats(logs) {
+  const year = new Date().getFullYear();
+  const y = collectorYearlyLogs(logs, year);
+  const today = new Date();
+  const pickupsToday = y.filter(l => isLogSameLocalCalendarDay(l, today)).length;
+  const verifiedOk = y.filter(l => l.status === "Completed").length;
+  const notSegregated = y.filter(l => l.status === "Rejected").length;
+  const pending = y.filter(l => l.status === "Pending").length;
+  return { year, pickupsToday, verifiedOk, notSegregated, pending };
+}
+
+function sortedVerifiedLogsYear(logs, year = new Date().getFullYear()) {
+  return collectorYearlyLogs(logs, year)
+    .filter(l => l.status === "Completed")
+    .slice()
+    .sort((a, b) => String(b.completedAt || b.createdAt).localeCompare(String(a.completedAt || a.createdAt)));
+}
+
+function verifiedLogsHandledByCollector(logs, collectorId, year = new Date().getFullYear()) {
+  const cid = String(collectorId || "");
+  return sortedVerifiedLogsYear(logs, year).filter(l => String(l.verifiedBy || "") === cid);
+}
+
+function htmlVerifiedLogCardReadOnly(log, opts = {}) {
+  const showVerifier = opts.showVerifier !== false;
+  const verifier = showVerifier && log.verifiedBy ? ` · Verified by ${log.verifiedBy}` : "";
+  return `
+      <div class="card" style="margin-bottom:8px">
+        <strong>${log.userName}</strong> • ${log.type} • ${log.weight} kg<br/>
+        <small>${formatDateTime(log.completedAt || log.createdAt)}${log.ecoPointsAwarded ? ` · +${log.ecoPointsAwarded} pts` : ""}${verifier}</small>
+      </div>
+    `;
+}
+
+function renderCollectorHistoryPage() {
+  const el = document.getElementById("collector-history-page-list");
+  const yearEl = document.getElementById("collector-history-year-label");
+  const user = AuthService.currentUser();
+  if (!el || !user || normalizeRole(user.role) !== "collector") return;
+  const year = new Date().getFullYear();
+  if (yearEl) yearEl.textContent = String(year);
+  const logs = sortedVerifiedLogsYear(AppState.logs, year);
+  el.innerHTML = logs.length
+    ? logs.map(l => htmlVerifiedLogCardReadOnly(l)).join("")
+    : `<p style="font-size:0.88rem;color:var(--text-muted);margin:0">No verified logs for ${year}.</p>`;
+}
+
+function renderCollectorProfileShell() {
+  const user = AuthService.currentUser();
+  const sec = document.getElementById("screen-collector-profile");
+  if (!sec || !user || normalizeRole(user.role) !== "collector") return;
+  const nameEl = sec.querySelector(".profile-name");
+  const roleEl = sec.querySelector(".profile-role");
+  if (nameEl) nameEl.textContent = user.name || "Collector";
+  if (roleEl) roleEl.textContent = `Collector · ${getUserBarangayLabel(user)}`;
+
+  const hist = document.getElementById("collector-profile-history-list");
+  if (!hist) return;
+  const year = new Date().getFullYear();
+  const mine = verifiedLogsHandledByCollector(AppState.logs, user.id, year);
+  hist.innerHTML = mine.length
+    ? mine.map(l => htmlVerifiedLogCardReadOnly(l, { showVerifier: false })).join("")
+    : `<p style="font-size:0.88rem;color:var(--text-muted);margin:0">No verified pickups assigned to you for ${year} yet.</p>`;
+}
+
 function getToken() {
   return sessionStorage.getItem(TOKEN_KEY);
 }
@@ -481,6 +586,7 @@ async function syncFromServer() {
         email: u.id === user.id ? user.email || "" : "",
         phoneNumber: u.id === user.id ? user.phoneNumber || "" : "",
         address: u.id === user.id ? user.address || "" : "",
+        gender: u.id === user.id ? user.gender || "" : "",
         role: "household",
         ecoPoints: u.ecoPoints,
         streak: u.id === user.id ? user.streak : 0,
@@ -495,6 +601,7 @@ async function syncFromServer() {
           email: user.email || "",
           phoneNumber: user.phoneNumber || "",
           address: user.address || "",
+          gender: user.gender || "",
           role: "household",
           ecoPoints: user.ecoPoints,
           streak: user.streak,
@@ -513,6 +620,7 @@ async function syncFromServer() {
             email: user.email || "",
             phoneNumber: user.phoneNumber || "",
             address: user.address || "",
+            gender: user.gender || mapped[idx].gender || "",
             barangay: user.barangay || mapped[idx].barangay
           };
         }
@@ -526,6 +634,7 @@ async function syncFromServer() {
           email: user.email || "",
           phoneNumber: user.phoneNumber || "",
           address: user.address || "",
+          gender: user.gender || "",
           role: user.role,
           ecoPoints: user.ecoPoints || 0,
           streak: user.streak || 0,
@@ -538,6 +647,26 @@ async function syncFromServer() {
 
     if (normalizeRole(user.role) === "admin") {
       adminAnalyticsCache = await apiFetch("/admin/analytics");
+      try {
+        const usersData = await apiFetch("/admin/users");
+        const mappedAdminUsers = (usersData.users || []).map(u => ({
+          id: u.id,
+          name: u.name,
+          email: u.email || "",
+          phoneNumber: u.phoneNumber || "",
+          address: u.address || "",
+          gender: u.gender || "",
+          role: u.role,
+          ecoPoints: Number(u.ecoPoints) || 0,
+          streak: Number(u.streak) || 0,
+          badge: u.badge || "",
+          barangay: u.barangay || "",
+          password: ""
+        }));
+        if (mappedAdminUsers.length) AppState.users = mappedAdminUsers;
+      } catch (_e) {
+        /* keep fallback single-user row */
+      }
     } else {
       adminAnalyticsCache = null;
     }
@@ -593,10 +722,11 @@ function buildSeedState() {
         role: "household",
         ecoPoints: 1245,
         streak: 7,
-        badge: "Eco Champion",
+        badge: "Eco Hero",
         barangay: "Holy Spirit",
         phoneNumber: "09171234567",
-        address: "Brgy. Holy Spirit, Lipa City"
+        address: "Brgy. Holy Spirit, Lipa City",
+        gender: "female"
       },
       {
         id: "COL001",
@@ -609,7 +739,8 @@ function buildSeedState() {
         badge: "Collector",
         barangay: "Holy Spirit",
         phoneNumber: "09171230000",
-        address: "Brgy. Holy Spirit, Lipa City"
+        address: "Brgy. Holy Spirit, Lipa City",
+        gender: "male"
       },
       {
         id: "ADM001",
@@ -622,7 +753,8 @@ function buildSeedState() {
         badge: "Admin",
         barangay: "Holy Spirit",
         phoneNumber: "09179990000",
-        address: "Brgy. Holy Spirit, Lipa City"
+        address: "Brgy. Holy Spirit, Lipa City",
+        gender: "male"
       }
     ],
     logs: [
@@ -633,6 +765,7 @@ function buildSeedState() {
         type: "PET",
         weight: 1.2,
         createdAt: nowIso(),
+        logDate: nowIso(),
         status: "Completed",
         verifiedBy: "COL001",
         completedAt: nowIso(),
@@ -645,8 +778,22 @@ function buildSeedState() {
         type: "HDPE",
         weight: 0.8,
         createdAt: nowIso(),
+        logDate: nowIso(),
         status: "Pending",
         verifiedBy: null,
+        completedAt: null,
+        ecoPointsAwarded: 0
+      },
+      {
+        id: "LOG003",
+        userId: "USR001",
+        userName: "Maria Santos",
+        type: "PET",
+        weight: 0.5,
+        createdAt: nowIso(),
+        logDate: nowIso(),
+        status: "Rejected",
+        verifiedBy: "COL001",
         completedAt: null,
         ecoPointsAwarded: 0
       }
@@ -743,11 +890,14 @@ const AuthService = {
     if (phoneErr) return { ok: false, message: phoneErr };
     const addressErr = validateRegisterAddressClient(payload.address);
     if (addressErr) return { ok: false, message: addressErr };
+    const genderErr = validateRegisterGenderClient(payload.gender);
+    if (genderErr) return { ok: false, message: genderErr };
     const existing = AppState.users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.role === role);
     if (existing) return { ok: false, message: "Account already exists for this role." };
     const idPrefix = role === "collector" ? "COL" : role === "admin" ? "ADM" : "USR";
     const id = `${idPrefix}${String(AppState.users.length + 1).padStart(3, "0")}`;
     const addrRaw = String(payload.address || "").trim();
+    const gender = String(payload.gender || "").trim().toLowerCase();
     const user = {
       id,
       name: (payload.name || email.split("@")[0].replace(/\./g, " ")).trim() || "User",
@@ -759,7 +909,8 @@ const AuthService = {
       badge: "Eco Starter",
       barangay: extractBarangaySegment(addrRaw),
       phoneNumber: String(payload.phoneNumber || "").trim(),
-      address: addrRaw
+      address: addrRaw,
+      gender: gender === "male" || gender === "female" ? gender : ""
     };
     AppState.users.push(user);
     persistState();
@@ -833,7 +984,16 @@ const VerificationService = {
     const log = AppState.logs.find(l => l.id === logId);
     if (!log) return null;
     if (!isVerified) {
-      log.status = "Pending";
+      if (log.status === "Completed") return log;
+      log.status = "Rejected";
+      log.verifiedBy = collectorId;
+      log.completedAt = null;
+      log.ecoPointsAwarded = 0;
+      AppState.notifications.unshift({
+        text: `Log ${log.id} marked as not segregated (household notified).`,
+        createdAt: nowIso(),
+        userId: log.userId
+      });
       persistState();
       return log;
     }
@@ -894,16 +1054,19 @@ const AnalyticsService = {
   metrics() {
     const total = AppState.logs.length;
     const completed = AppState.logs.filter(l => l.status === "Completed").length;
-    const pending = total - completed;
+    const pending = AppState.logs.filter(l => l.status === "Pending").length;
+    const rejected = AppState.logs.filter(l => l.status === "Rejected").length;
     const totalCollectedKg = AppState.logs
       .filter(l => l.status === "Completed")
       .reduce((sum, l) => sum + l.weight, 0);
-    const compliance = total > 0 ? Math.round((completed / total) * 100) : 0;
+    const decided = completed + pending + rejected;
+    const compliance = decided > 0 ? Math.round((completed / decided) * 100) : 0;
     const ecoPointsDistributed = AppState.logs.reduce((sum, l) => sum + (l.ecoPointsAwarded || 0), 0);
     return {
       totalLogs: total,
       completedLogs: completed,
       pendingLogs: pending,
+      rejectedLogs: rejected,
       totalCollectedKg: Number(totalCollectedKg.toFixed(1)),
       compliance,
       ecoPointsDistributed
@@ -1081,6 +1244,12 @@ function initDashboardBackButtons() {
   const dash = document.getElementById("mount-dashboard-phase");
   if (!dash) return;
   dash.querySelectorAll("section.screen").forEach(section => {
+    if (
+      section.id === "screen-home" ||
+      section.id === "screen-collector" ||
+      section.id === "screen-collector-history"
+    )
+      return;
     if (section.querySelector(".page-back-btn")) return;
     const profileIds = new Set(["screen-profile", "screen-collector-profile", "screen-admin-profile"]);
     if (profileIds.has(section.id)) {
@@ -1398,9 +1567,11 @@ function renderProfile() {
   const user = AuthService.currentUser();
   const name = document.getElementById("profile-name");
   const profileAddress = document.getElementById("profile-brgy");
+  const profileAvatar = document.getElementById("profile-avatar");
   const pts = document.getElementById("profile-pts");
   const streak = document.getElementById("profile-streak");
   const badge = document.getElementById("eco-badge-pts");
+  if (profileAvatar) profileAvatar.textContent = profileAvatarEmoji(user);
   if (name) name.textContent = user ? (user.name || "User") : "User";
   if (profileAddress) profileAddress.textContent = user ? getUserBarangayLabel(user) : NO_ADDRESS_LABEL;
   if (pts) pts.textContent = user ? user.ecoPoints : "0";
@@ -1440,23 +1611,41 @@ function renderRewardsBarangay() {
 function renderCollectorView() {
   const list = document.getElementById("pickup-list");
   if (!list) return;
-  const pendingFirst = AppState.logs.slice().sort((a, b) => (a.status === "Pending" ? -1 : 1));
-  list.innerHTML = pendingFirst.map(log => `
+  const year = new Date().getFullYear();
+  const stats = computeCollectorDashboardStats(AppState.logs);
+  const yLogs = collectorYearlyLogs(AppState.logs, year);
+  const active = yLogs
+    .filter(l => l.status === "Pending" || l.status === "Rejected")
+    .slice()
+    .sort((a, b) => {
+      if (a.status === "Pending" && b.status !== "Pending") return -1;
+      if (b.status === "Pending" && a.status !== "Pending") return 1;
+      return logReferenceInstant(b).getTime() - logReferenceInstant(a).getTime();
+    });
+  const statusLabel = log =>
+    log.status === "Rejected" ? "Not segregated" : log.status === "Pending" ? "Pending" : log.status;
+  list.innerHTML = active.length
+    ? active
+        .map(
+          log => `
     <div class="card" style="margin-bottom:10px">
       <strong>${log.userName}</strong> • ${log.type} • ${log.weight} kg<br/>
-      <small>Status: <strong>${log.status}</strong></small>
+      <small>Status: <strong>${statusLabel(log)}</strong> · ${logCalendarYear(log)}</small>
       <div style="display:flex;gap:8px;margin-top:8px">
         <button class="btn btn-outline" onclick="handleCollectorDecision('${log.id}',false)">Not Verified</button>
         <button class="btn btn-primary" onclick="handleCollectorDecision('${log.id}',true)">Verify</button>
       </div>
     </div>
-  `).join("");
-  const metrics = AnalyticsService.metrics();
+  `
+        )
+        .join("")
+    : `<p style="font-size:0.88rem;color:var(--text-muted);margin:0">No active pickups for ${year}. Open History for verified logs.</p>`;
+
   const statValues = document.querySelectorAll("#screen-collector .stat-value");
-  if (statValues[0]) statValues[0].textContent = metrics.totalLogs;
-  if (statValues[1]) statValues[1].textContent = metrics.completedLogs;
-  if (statValues[2]) statValues[2].textContent = metrics.totalLogs - metrics.completedLogs;
-  if (statValues[3]) statValues[3].textContent = metrics.pendingLogs;
+  if (statValues[0]) statValues[0].textContent = stats.pickupsToday;
+  if (statValues[1]) statValues[1].textContent = stats.verifiedOk;
+  if (statValues[2]) statValues[2].textContent = stats.notSegregated;
+  if (statValues[3]) statValues[3].textContent = stats.pending;
 }
 
 async function handleCollectorDecision(logId, isVerified) {
@@ -1472,7 +1661,9 @@ async function handleCollectorDecision(logId, isVerified) {
         body: JSON.stringify({ approve: Boolean(isVerified) })
       });
       await syncFromServer();
-      showToast(isVerified ? "Log marked as Completed." : "Status kept as Pending.");
+      showToast(
+        isVerified ? "Verified — log moved to history." : "Marked as not segregated — stays on active dashboard."
+      );
       refreshUI();
       return;
     } catch (e) {
@@ -1485,7 +1676,9 @@ async function handleCollectorDecision(logId, isVerified) {
     showToast("Log not found.");
     return;
   }
-  showToast(isVerified ? "Log marked as Completed." : "Status kept as Pending.");
+  showToast(
+    isVerified ? "Verified — log moved to history." : "Marked as not segregated — stays on active dashboard."
+  );
   refreshUI();
 }
 
@@ -1949,10 +2142,12 @@ function initAuth() {
   const passwordToggleBtn = document.getElementById("auth-password-toggle");
   const phoneInput = document.getElementById("auth-phone-number");
   const addressInput = document.getElementById("auth-address");
+  const genderInput = document.getElementById("auth-gender");
   const emailError = document.getElementById("auth-email-error");
   const passwordError = document.getElementById("auth-password-error");
   const phoneError = document.getElementById("auth-phone-number-error");
   const addressError = document.getElementById("auth-address-error");
+  const genderError = document.getElementById("auth-gender-error");
 
   const setFieldError = (inputEl, errorEl, message) => {
     if (!inputEl || !errorEl) return;
@@ -1966,6 +2161,7 @@ function initAuth() {
     setFieldError(passwordInput, passwordError, "");
     setFieldError(phoneInput, phoneError, "");
     setFieldError(addressInput, addressError, "");
+    setFieldError(genderInput, genderError, "");
   };
 
   const syncPasswordAutocomplete = () => {
@@ -1986,6 +2182,7 @@ function initAuth() {
     if (passwordInput) passwordInput.value = "";
     if (phoneInput) phoneInput.value = "";
     if (addressInput) addressInput.value = "";
+    if (genderInput) genderInput.value = "";
   };
   const focusAuthEmail = () => {
     if (emailInput) emailInput.focus();
@@ -2000,6 +2197,7 @@ function initAuth() {
   passwordInput?.addEventListener("input", () => setFieldError(passwordInput, passwordError, ""));
   phoneInput?.addEventListener("input", () => setFieldError(phoneInput, phoneError, ""));
   addressInput?.addEventListener("input", () => setFieldError(addressInput, addressError, ""));
+  genderInput?.addEventListener("change", () => setFieldError(genderInput, genderError, ""));
 
   passwordToggleBtn?.addEventListener("click", () => {
     if (!passwordInput) return;
@@ -2046,6 +2244,7 @@ function initAuth() {
     const password = passwordInput ? passwordInput.value : "";
     const phoneNumber = (phoneInput ? phoneInput.value : "").trim();
     const address = (addressInput ? addressInput.value : "").trim();
+    const gender = (genderInput ? genderInput.value : "").trim();
     if (!email || !email.includes("@")) {
       setFieldError(emailInput, emailError, "Please enter a valid email address");
       emailInput?.focus();
@@ -2076,6 +2275,12 @@ function initAuth() {
         addressInput?.focus();
         return;
       }
+      const genderValidationError = validateRegisterGenderClient(gender);
+      if (genderValidationError) {
+        setFieldError(genderInput, genderError, genderValidationError);
+        genderInput?.focus();
+        return;
+      }
       const rp = validateRegisterPasswordClient(password);
       if (rp) {
         setFieldError(passwordInput, passwordError, "Password must be at least 8 characters with letters and numbers");
@@ -2096,7 +2301,8 @@ function initAuth() {
             name: displayName,
             role: registrationRole,
             phoneNumber,
-            address
+            address,
+            gender
           })
         });
         setToken(reg.token);
@@ -2113,7 +2319,8 @@ function initAuth() {
           name: displayName,
           role: registrationRole,
           phoneNumber,
-          address
+          address,
+          gender
         });
         if (!reg.ok) {
           showToast(e.message || reg.message);
@@ -2172,10 +2379,147 @@ function initAuth() {
 
 }
 
+function downloadLocalWasteLogsCsv() {
+  const header = "log_code,user_id,user_name,type,weight,status,points,created_at\n";
+  const lines = AppState.logs.map(l =>
+    `${l.id},${l.userId},"${String(l.userName || "").replace(/"/g, '""')}",${l.type},${l.weight},${l.status},${l.ecoPointsAwarded || 0},${l.createdAt || ""}`
+  );
+  const blob = new Blob([header + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "binbuddy-waste-logs.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function adminBroadcastLocal(message) {
+  const households = AppState.users.filter(u => normalizeRole(u.role) === "household");
+  const text = `[Barangay broadcast] ${message}`;
+  households.forEach(h => {
+    AppState.notifications.unshift({
+      text,
+      createdAt: nowIso(),
+      userId: h.id
+    });
+  });
+  persistState();
+}
+
+function renderAdminToolsDetail(html) {
+  const el = document.getElementById("admin-tools-detail");
+  if (el) el.innerHTML = html;
+}
+
+async function openAdminUsersTool() {
+  const user = AuthService.currentUser();
+  if (!user || user.role !== "admin") {
+    showToast("Admin access only.");
+    return;
+  }
+  if (apiMode && getToken()) {
+    try {
+      const data = await apiFetch("/admin/users");
+      AppState.users = (data.users || []).map(u => ({
+        id: u.id,
+        name: u.name,
+        email: u.email || "",
+        phoneNumber: u.phoneNumber || "",
+        address: u.address || "",
+        gender: u.gender || "",
+        role: u.role,
+        ecoPoints: Number(u.ecoPoints) || 0,
+        streak: Number(u.streak) || 0,
+        badge: u.badge || "",
+        barangay: u.barangay || "",
+        password: ""
+      }));
+    } catch (e) {
+      showToast(e.message || "Could not load users.");
+      return;
+    }
+  }
+  const rows = AppState.users.slice().sort((a, b) => String(a.role).localeCompare(String(b.role)));
+  renderAdminToolsDetail(`
+    <div class="card">
+      <div class="section-title">👥 Users (${rows.length})</div>
+      ${rows
+        .map(
+          u => `
+      <div class="card card-sm" style="margin-bottom:8px">
+        <strong>${u.name}</strong> · ${u.id} · ${u.role}<br/>
+        <small>${u.email || "—"} · ${getUserBarangayLabel(u)} · ${u.ecoPoints ?? 0} pts</small>
+      </div>`
+        )
+        .join("")}
+    </div>`);
+}
+
+async function openAdminReportTool() {
+  const user = AuthService.currentUser();
+  if (!user || user.role !== "admin") {
+    showToast("Admin access only.");
+    return;
+  }
+  if (apiMode && getToken()) {
+    try {
+      const rep = await apiFetch("/admin/report");
+      const m = rep.metrics || {};
+      const byStatus = rep.logsByStatus || {};
+      const recent = rep.recentLogs || [];
+      renderAdminToolsDetail(`
+        <div class="card">
+          <div class="section-title">📋 Full report</div>
+          <p style="font-size:0.86rem;color:var(--text-muted);margin:0 0 10px">
+            Total logs: ${m.totalLogs ?? "—"} · Completed: ${m.completedLogs ?? "—"} · Pending: ${m.pendingLogs ?? "—"} · Rejected: ${m.rejectedLogs ?? "—"} · Compliance: ${m.compliance ?? "—"}%
+          </p>
+          <div style="font-size:0.78rem;color:var(--text-muted);margin-bottom:10px">By status: ${Object.entries(byStatus)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(" · ") || "—"}</div>
+          <div class="section-title" style="margin-top:12px">Recent activity</div>
+          ${recent
+            .slice(0, 20)
+            .map(
+              r => `
+          <div class="card card-sm" style="margin-bottom:8px">
+            <strong>${r.logCode}</strong> · ${r.householdName} · ${r.wasteType} · ${r.weight} kg<br/>
+            <small>${r.status}${r.verifierCode ? ` · Verifier ${r.verifierCode}` : ""} · ${formatDateTime(r.createdAt)}</small>
+          </div>`
+            )
+            .join("")}
+        </div>`);
+      return;
+    } catch (e) {
+      showToast(e.message || "Could not load report.");
+      return;
+    }
+  }
+  const m = AnalyticsService.metrics();
+  renderAdminToolsDetail(`
+    <div class="card">
+      <div class="section-title">📋 Full report (local)</div>
+      <p style="font-size:0.86rem;color:var(--text-muted);margin:0 0 10px">
+        Total logs: ${m.totalLogs} · Completed: ${m.completedLogs} · Pending: ${m.pendingLogs} · Not segregated: ${m.rejectedLogs ?? 0} · Compliance: ${m.compliance}%
+      </p>
+      <div class="section-title" style="margin-top:12px">All logs</div>
+      ${AppState.logs
+        .slice()
+        .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+        .slice(0, 40)
+        .map(
+          l => `
+      <div class="card card-sm" style="margin-bottom:8px">
+        <strong>${l.id}</strong> · ${l.userName} · ${l.type} · ${l.weight} kg<br/>
+        <small>${l.status}${l.verifiedBy ? ` · ${l.verifiedBy}` : ""} · ${formatDateTime(l.createdAt)}</small>
+      </div>`
+        )
+        .join("")}
+    </div>`);
+}
+
 function initAdminActions() {
   const exportBtn = document.getElementById("btn-export");
-  if (!exportBtn) return;
-  exportBtn.addEventListener("click", async () => {
+  exportBtn?.addEventListener("click", async () => {
     const user = AuthService.currentUser();
     if (!user || user.role !== "admin") {
       showToast("Admin access only.");
@@ -2201,8 +2545,46 @@ function initAdminActions() {
         return;
       }
     }
-    showToast("CSV export generated.");
+    downloadLocalWasteLogsCsv();
+    showToast("CSV downloaded.");
   });
+
+  document.getElementById("btn-admin-users")?.addEventListener("click", () => openAdminUsersTool());
+
+  document.getElementById("btn-admin-broadcast")?.addEventListener("click", async () => {
+    const user = AuthService.currentUser();
+    if (!user || user.role !== "admin") {
+      showToast("Admin access only.");
+      return;
+    }
+    const msg = window.prompt("Broadcast message to all households:");
+    if (msg == null) return;
+    const trimmed = String(msg).trim();
+    if (!trimmed) {
+      showToast("Message required.");
+      return;
+    }
+    if (apiMode && getToken()) {
+      try {
+        const res = await apiFetch("/admin/broadcast", {
+          method: "POST",
+          body: JSON.stringify({ message: trimmed })
+        });
+        showToast(`Broadcast sent to ${res.recipients ?? 0} households.`);
+        await syncFromServer();
+        refreshUI();
+        return;
+      } catch (e) {
+        showToast(e.message || "Broadcast failed.");
+        return;
+      }
+    }
+    adminBroadcastLocal(trimmed);
+    showToast(`Broadcast sent to ${AppState.users.filter(u => normalizeRole(u.role) === "household").length} households.`);
+    refreshUI();
+  });
+
+  document.getElementById("btn-admin-report")?.addEventListener("click", () => openAdminReportTool());
 }
 
 function initNavigation() {
@@ -2300,10 +2682,12 @@ function refreshUI() {
   renderUserAddress();
   renderRewardsBarangay();
   renderProfile();
+  renderCollectorProfileShell();
   updateHomeStats();
   renderRecentLogs();
   renderNotifications();
   renderCollectorView();
+  renderCollectorHistoryPage();
   renderLeaderboard();
   renderAdminAnalytics();
   initRewards();
@@ -2383,6 +2767,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   updateQtyUI();
   resetLogInputs();
   refreshUI();
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (!getToken()) return;
+    if (!AuthService.currentUser()) return;
+    syncFromServer().then(ok => {
+      if (ok) refreshUI();
+    });
+  });
 });
 
 window.AppState = AppState;

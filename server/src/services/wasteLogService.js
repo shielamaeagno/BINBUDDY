@@ -21,7 +21,12 @@ function rowToLog(row) {
     weight: Number(row.weight),
     createdAt: row.created_at,
     logDate: row.log_date || row.created_at,
-    status: row.status === "completed" ? "Completed" : "Pending",
+    status:
+      row.status === "completed"
+        ? "Completed"
+        : row.status === "rejected"
+          ? "Rejected"
+          : "Pending",
     verifiedBy: row.verifier_code || null,
     completedAt: row.completed_at || null,
     ecoPointsAwarded: row.eco_points_awarded || 0,
@@ -120,7 +125,17 @@ export function verifyLog(logCode, collectorUserId, approve) {
   const householdId = log.user_id;
 
   if (!approve) {
-    db.prepare(`UPDATE waste_logs SET status = 'pending', verified_by = NULL, eco_points_awarded = 0, completed_at = NULL WHERE log_code = ?`).run(logCode);
+    if (log.status === "completed") {
+      const unchanged = db.prepare(`${listSql} WHERE wl.log_code = ?`).get(logCode);
+      return { ok: true, log: rowToLog(unchanged) };
+    }
+    db.prepare(
+      `UPDATE waste_logs SET status = 'rejected', verified_by = ?, eco_points_awarded = 0, completed_at = NULL WHERE log_code = ?`
+    ).run(collectorUserId, logCode);
+    db.prepare(`INSERT INTO notifications (user_id, message) VALUES (?, ?)`).run(
+      householdId,
+      `Log ${logCode} was marked not segregated. It stays on the collector dashboard until resolved.`
+    );
     const updated = db.prepare(`${listSql} WHERE wl.log_code = ?`).get(logCode);
     return { ok: true, log: rowToLog(updated) };
   }
