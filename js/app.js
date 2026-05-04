@@ -38,6 +38,54 @@ function validateRegisterAddressClient(address) {
   return "";
 }
 
+const NO_ADDRESS_LABEL = "No address provided";
+
+function extractBarangaySegment(address) {
+  const s = String(address || "").trim();
+  if (!s) return "";
+  const m = s.match(/(?:Brgy\.?|Barangay)\s*([^,]+)/i);
+  if (m) return m[1].trim().slice(0, 120);
+  const first = s.split(",")[0].trim();
+  return first.replace(/^(?:Brgy\.?|Barangay)\s*/i, "").trim().slice(0, 120) || first.slice(0, 120);
+}
+
+function formatBarangayLabel(part) {
+  const x = String(part || "").trim();
+  if (!x) return "";
+  if (/^(brgy\.?|barangay)\b/i.test(x)) {
+    return x.charAt(0).toUpperCase() + x.slice(1);
+  }
+  return `Brgy. ${x}`;
+}
+
+/** Same barangay line for Dashboard, Rewards, and Profile — from stored address / barangay. */
+function getUserBarangayLabel(user) {
+  if (!user) return NO_ADDRESS_LABEL;
+  const fromAddr = extractBarangaySegment(user.address);
+  if (fromAddr) return formatBarangayLabel(fromAddr);
+  const br = String(user.barangay || "").trim();
+  if (br) return formatBarangayLabel(br);
+  const raw = String(user.address || "").trim();
+  if (raw) return raw;
+  return NO_ADDRESS_LABEL;
+}
+
+const NO_RECENT_ACTIVITY_TEXT = "No recent activity yet.";
+
+/** Waste logs tied to the authenticated user (numeric id or user_code must match). */
+function wasteLogsForUser(user) {
+  if (!user) return [];
+  const uid = String(user.id);
+  return AppState.logs.filter(l => String(l.userId) === uid);
+}
+
+/** Notifications scoped to the authenticated user (local entries must include userId). */
+function notificationsForUser(user) {
+  if (!user) return [];
+  const uid = String(user.id);
+  return AppState.notifications.filter(n => n.userId != null && String(n.userId) === uid);
+}
+
 function sanitizeRegisterName(email, derived) {
   const raw = (derived || "").trim() || email.split("@")[0].replace(/[.@]+/g, " ").trim() || "User";
   return raw.slice(0, 100);
@@ -133,7 +181,15 @@ function exitAuthenticatedMount() {
   showLoginFormOnly();
 }
 
+/** In-app stack for Back navigation (does not replace browser history). */
+const navStack = [];
+
+function clearNavStack() {
+  navStack.length = 0;
+}
+
 function enterAuthenticatedMount() {
+  clearNavStack();
   detachLoginPhase();
   setDashboardPhaseVisible(true);
   setViewportAuthLock(false);
@@ -166,7 +222,7 @@ function finalizeAuthenticatedEntry(firstScreen, { replaceHistory = true } = {})
   suppressSplashTransitions = true;
   enterAuthenticatedMount();
   const screen = firstScreen || "home";
-  goTo(screen, { trackHistory: false, skipAuthenticatedHistory: true });
+  goTo(screen, { trackHistory: false, skipAuthenticatedHistory: true, skipNavStack: true });
   historySyncAuthenticated(screen, replaceHistory);
 }
 
@@ -336,7 +392,7 @@ function handlePopNavigate() {
 
   let safe = st.screen || RoleGuard.getHomeScreen(user.role);
   if (!RoleGuard.canAccess(user.role, safe)) safe = RoleGuard.getHomeScreen(user.role);
-  goTo(safe, { trackHistory: false, skipAuthenticatedHistory: true });
+  goTo(safe, { trackHistory: false, skipAuthenticatedHistory: true, skipNavStack: true });
 }
 
 const HistoryGuard = {
@@ -412,7 +468,8 @@ async function syncFromServer() {
     const notifData = await apiFetch("/notifications");
     AppState.notifications = (notifData.notifications || []).map(n => ({
       text: n.text,
-      createdAt: n.createdAt || n.created_at
+      createdAt: n.createdAt || n.created_at,
+      userId: user.id
     }));
 
     if (normalizeRole(user.role) === "household") {
@@ -455,7 +512,8 @@ async function syncFromServer() {
             badge: user.badge,
             email: user.email || "",
             phoneNumber: user.phoneNumber || "",
-            address: user.address || ""
+            address: user.address || "",
+            barangay: user.barangay || mapped[idx].barangay
           };
         }
       }
@@ -505,7 +563,7 @@ async function syncFromServer() {
 function updateHomeStats() {
   const user = AuthService.currentUser();
   if (!user || normalizeRole(user.role) !== "household") return;
-  const logs = AppState.logs.filter(l => l.userId === user.id);
+  const logs = wasteLogsForUser(user);
   const today = new Date().toDateString();
   let petToday = 0;
   let hdpeToday = 0;
@@ -689,6 +747,7 @@ const AuthService = {
     if (existing) return { ok: false, message: "Account already exists for this role." };
     const idPrefix = role === "collector" ? "COL" : role === "admin" ? "ADM" : "USR";
     const id = `${idPrefix}${String(AppState.users.length + 1).padStart(3, "0")}`;
+    const addrRaw = String(payload.address || "").trim();
     const user = {
       id,
       name: (payload.name || email.split("@")[0].replace(/\./g, " ")).trim() || "User",
@@ -698,9 +757,9 @@ const AuthService = {
       ecoPoints: 0,
       streak: 0,
       badge: "Eco Starter",
-      barangay: "Holy Spirit",
+      barangay: extractBarangaySegment(addrRaw),
       phoneNumber: String(payload.phoneNumber || "").trim(),
-      address: String(payload.address || "").trim()
+      address: addrRaw
     };
     AppState.users.push(user);
     persistState();
@@ -761,7 +820,8 @@ const WasteLogService = {
     AppState.logs.unshift(log);
     AppState.notifications.unshift({
       text: `Log submitted (${log.type}, ${log.weight} kg). Status: Pending.`,
-      createdAt: nowIso()
+      createdAt: nowIso(),
+      userId: user.id
     });
     persistState();
     return log;
@@ -789,7 +849,8 @@ const VerificationService = {
       user.badge = BADGE_LEVELS.reduce((acc, level) => (user.ecoPoints >= level.min ? level.label : acc), "Eco Starter");
       AppState.notifications.unshift({
         text: `Log ${log.id} completed. +${log.ecoPointsAwarded} EcoPoints awarded.`,
-        createdAt: nowIso()
+        createdAt: nowIso(),
+        userId: log.userId
       });
     }
     persistState();
@@ -821,7 +882,8 @@ const RewardsService = {
     });
     AppState.notifications.unshift({
       text: `Redeemed ${reward.display} for ${reward.cost} points.`,
-      createdAt: nowIso()
+      createdAt: nowIso(),
+      userId: user.id
     });
     persistState();
     return { ok: true, reward };
@@ -903,9 +965,30 @@ function initSplash(_restoredSession) {
   }, 1800);
 }
 
+function syncTrackScreenSubView(screen, trackSubView) {
+  const el = document.getElementById("screen-track");
+  if (!el) return;
+  const historyOnly = screen === "track" && trackSubView === "history";
+  el.classList.toggle("track-history-only", historyOnly);
+  const h1 = el.querySelector(".page-header h1");
+  const sub = el.querySelector(".page-header-sub");
+  if (h1) h1.textContent = historyOnly ? "Disposal History" : "Log Your Disposal";
+  if (sub) sub.textContent = historyOnly ? "📋 Your past disposals" : "📦 Waste Tracking";
+}
+
 function goTo(screen, options = {}) {
-  const { trackHistory = true, skipAuthenticatedHistory = false } = options;
+  const {
+    trackHistory = true,
+    skipAuthenticatedHistory = false,
+    trackSubView,
+    skipNavStack = false
+  } = options;
   const user = AuthService.currentUser();
+  const fromScreen = AppState.currentScreen;
+  const fromTrackHistory =
+    fromScreen === "track" &&
+    Boolean(document.getElementById("screen-track")?.classList.contains("track-history-only"));
+
   if (screen !== "auth" && screen !== "splash" && !user) {
     showToast("Please login first.");
     suppressSplashTransitions = true;
@@ -938,6 +1021,26 @@ function goTo(screen, options = {}) {
 
   target.classList.add("active");
   AppState.currentScreen = screen;
+  syncTrackScreenSubView(screen, trackSubView);
+
+  if (
+    !skipNavStack &&
+    user &&
+    fromScreen &&
+    fromScreen !== screen &&
+    !["auth", "splash"].includes(String(fromScreen)) &&
+    !["auth", "splash"].includes(String(screen)) &&
+    trackHistory &&
+    !skipAuthenticatedHistory
+  ) {
+    const entry = { screen: fromScreen, trackSubView: fromTrackHistory ? "history" : undefined };
+    const tail = navStack[navStack.length - 1];
+    if (!tail || tail.screen !== entry.screen || tail.trackSubView !== entry.trackSubView) {
+      while (navStack.length >= 40) navStack.shift();
+      navStack.push(entry);
+    }
+  }
+
   if (trackHistory && AuthService.currentUser() && !skipAuthenticatedHistory) {
     HistoryGuard.push(screen);
   }
@@ -949,6 +1052,62 @@ function goTo(screen, options = {}) {
   }
   refreshUI();
   resetViewportScroll(target);
+}
+
+function navGoBack() {
+  const user = AuthService.currentUser();
+  if (!user) return;
+  const home = RoleGuard.getHomeScreen(normalizeRole(user.role));
+  if (navStack.length === 0) {
+    goTo(home, { trackHistory: false, skipAuthenticatedHistory: true, skipNavStack: true });
+    return;
+  }
+  const entry = navStack.pop();
+  const prev = entry?.screen;
+  if (!prev || !RoleGuard.canAccess(user.role, prev)) {
+    goTo(home, { trackHistory: false, skipAuthenticatedHistory: true, skipNavStack: true });
+    return;
+  }
+  const opts = {
+    trackHistory: false,
+    skipAuthenticatedHistory: true,
+    skipNavStack: true
+  };
+  if (prev === "track" && entry.trackSubView === "history") opts.trackSubView = "history";
+  goTo(prev, opts);
+}
+
+function initDashboardBackButtons() {
+  const dash = document.getElementById("mount-dashboard-phase");
+  if (!dash) return;
+  dash.querySelectorAll("section.screen").forEach(section => {
+    if (section.querySelector(".page-back-btn")) return;
+    const profileIds = new Set(["screen-profile", "screen-collector-profile", "screen-admin-profile"]);
+    if (profileIds.has(section.id)) {
+      const hero = section.querySelector(".profile-hero");
+      if (!hero) return;
+      const row = document.createElement("div");
+      row.className = "profile-back-row";
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "page-back-btn page-back-btn--profile";
+      btn.textContent = "← Back";
+      btn.setAttribute("aria-label", "Go back");
+      btn.addEventListener("click", () => navGoBack());
+      row.appendChild(btn);
+      section.insertBefore(row, hero);
+      return;
+    }
+    const ph = section.querySelector(".page-header");
+    if (!ph) return;
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "page-back-btn";
+    btn.textContent = "← Back";
+    btn.setAttribute("aria-label", "Go back");
+    btn.addEventListener("click", () => navGoBack());
+    ph.insertBefore(btn, ph.firstChild);
+  });
 }
 
 function syncBottomNav(user, screen) {
@@ -1169,19 +1328,28 @@ function openSuccessModal(log) {
 }
 
 function renderRecentLogs() {
+  const user = AuthService.currentUser();
+  const mine = user ? wasteLogsForUser(user) : [];
   const recent = document.getElementById("recent-logs");
   if (recent) {
-    recent.innerHTML = AppState.logs.slice(0, 5).map(l => `
+    if (!user || mine.length === 0) {
+      recent.innerHTML = `<p style="font-size:0.88rem;color:var(--text-muted);margin:0">${NO_RECENT_ACTIVITY_TEXT}</p>`;
+    } else {
+      recent.innerHTML = mine.slice(0, 5).map(l => `
       <div class="card" style="margin-bottom:8px">
         <strong>${l.type}</strong><br/>
         ${l.weight} kg • <strong>${l.status}</strong><br/>
         <small>${formatDateTime(l.createdAt)}</small>
       </div>
     `).join("");
+    }
   }
   const history = document.getElementById("full-history");
   if (history) {
-    history.innerHTML = AppState.logs.map(l => `
+    if (!user || mine.length === 0) {
+      history.innerHTML = `<p style="font-size:0.88rem;color:var(--text-muted);margin:0">${NO_RECENT_ACTIVITY_TEXT}</p>`;
+    } else {
+      history.innerHTML = mine.map(l => `
       <div class="card" style="margin-bottom:8px">
         <strong>${l.type}</strong><br/>
         ${l.weight} kg • <strong>${l.status}</strong>
@@ -1189,18 +1357,25 @@ function renderRecentLogs() {
         <small>${formatDateTime(l.createdAt)}</small>
       </div>
     `).join("");
+    }
   }
 }
 
 function renderNotifications() {
   const el = document.getElementById("notif-list");
   if (!el) return;
-  el.innerHTML = AppState.notifications.slice(0, 20).map(n => `
+  const user = AuthService.currentUser();
+  const rows = notificationsForUser(user).slice(0, 20);
+  el.innerHTML = rows
+    .map(
+      n => `
     <div class="card">
       ${n.text}<br/>
       <small>${formatDateTime(n.createdAt || n.created_at)}</small>
     </div>
-  `).join("");
+  `
+    )
+    .join("");
 }
 
 function renderLeaderboard() {
@@ -1227,7 +1402,7 @@ function renderProfile() {
   const streak = document.getElementById("profile-streak");
   const badge = document.getElementById("eco-badge-pts");
   if (name) name.textContent = user ? (user.name || "User") : "User";
-  if (profileAddress) profileAddress.textContent = user ? (user.address || "Address not set") : "Address not set";
+  if (profileAddress) profileAddress.textContent = user ? getUserBarangayLabel(user) : NO_ADDRESS_LABEL;
   if (pts) pts.textContent = user ? user.ecoPoints : "0";
   if (streak) streak.textContent = user ? user.streak : "0";
   if (badge) badge.textContent = `⭐ ${user ? user.ecoPoints : 0} pts`;
@@ -1248,8 +1423,18 @@ function renderUserAddress() {
   const user = AuthService.currentUser();
   const homeAddress = document.getElementById("home-user-address");
   if (homeAddress) {
-    homeAddress.textContent = user ? (user.address || "Address not set") : "Address not set";
+    homeAddress.textContent = user ? getUserBarangayLabel(user) : NO_ADDRESS_LABEL;
   }
+}
+
+function renderRewardsBarangay() {
+  const el = document.getElementById("rewards-rank-sub");
+  if (!el) return;
+  const user = AuthService.currentUser();
+  const pts = user && normalizeRole(user.role) === "household" ? Number(user.ecoPoints) || 0 : 0;
+  const peso = Math.max(0, Math.round(pts / 10));
+  const brgy = user ? getUserBarangayLabel(user) : NO_ADDRESS_LABEL;
+  el.textContent = `≈ ₱${peso} value · ${brgy} Rank #1 🏆`;
 }
 
 function renderCollectorView() {
@@ -1692,6 +1877,7 @@ function initRecyclableChecker() {
 }
 
 function initRewards() {
+  renderRewardsBarangay();
   const grid = document.getElementById("rewards-grid");
   if (!grid) return;
   const paint = catalog => {
@@ -2112,6 +2298,7 @@ function selectModalType(type, el) {
 function refreshUI() {
   renderHomeGreeting();
   renderUserAddress();
+  renderRewardsBarangay();
   renderProfile();
   updateHomeStats();
   renderRecentLogs();
@@ -2142,6 +2329,9 @@ function logout(showMessage = true, requireConfirmation = false) {
   SessionManager.clearAppCache();
   clearRuntimeUserContext();
   clearSession();
+  clearNavStack();
+  AppState.logs = [];
+  AppState.notifications = [];
   loadState();
   suppressSplashTransitions = false;
   exitAuthenticatedMount();
@@ -2185,6 +2375,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initSplash(restored);
   setupWasteTypeSelectors();
   initNavigation();
+  initDashboardBackButtons();
   initAuth();
   initAdminActions();
   initGuide();
@@ -2196,6 +2387,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 window.AppState = AppState;
 window.goTo = goTo;
+window.navGoBack = navGoBack;
 window.showToast = showToast;
 window.openLogModal = openLogModal;
 window.closeModal = closeModal;

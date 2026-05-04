@@ -20,6 +20,19 @@ function getUserByEmail(email) {
   return db.prepare("SELECT * FROM users WHERE lower(email) = lower(?)").get(email.trim());
 }
 
+function barangayFromAddress(address) {
+  const s = String(address || "").trim();
+  if (!s) return "Holy Spirit";
+  const m = s.match(/(?:Brgy\.?|Barangay)\s*([^,]+)/i);
+  if (m) {
+    const n = m[1].trim().slice(0, 120);
+    return n || "Holy Spirit";
+  }
+  const first = s.split(",")[0].trim();
+  const n = first.replace(/^(?:Brgy\.?|Barangay)\s*/i, "").trim() || first;
+  return (n || "Holy Spirit").slice(0, 120);
+}
+
 function nextUserCode(role) {
   const prefix = role === "collector" ? "COL" : role === "admin" ? "ADM" : "USR";
   const row = db.prepare(`SELECT user_code FROM users WHERE user_code LIKE ? ORDER BY user_code DESC LIMIT 1`).get(`${prefix}%`);
@@ -46,11 +59,12 @@ export function register({ email, password, name, role: roleRaw, phoneNumber, ad
   const level = role === "household" ? badgeFromPoints(0) : null;
   const normalizedPhone = String(phoneNumber || "").trim();
   const normalizedAddress = String(address || "").trim();
+  const barangay = barangayFromAddress(normalizedAddress);
 
   db.prepare(
     `INSERT INTO users (user_code, full_name, email, password_hash, phone_number, address, role, eco_points, streak_days, level, barangay)
-     VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 'Holy Spirit')`
-  ).run(user_code, full_name, email.trim().toLowerCase(), password_hash, normalizedPhone, normalizedAddress, role, level);
+     VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)`
+  ).run(user_code, full_name, email.trim().toLowerCase(), password_hash, normalizedPhone, normalizedAddress, role, level, barangay);
 
   const user = db.prepare("SELECT * FROM users WHERE user_code = ?").get(user_code);
   authLog("register_ok", { user_code, role });

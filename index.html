@@ -46,51 +46,55 @@
       </aside>
       <div class="auth-split-panel">
         <form class="auth-panel-inner" id="auth-form" novalidate autocomplete="on">
-          <div class="auth-tabs" role="tablist" aria-label="Login or Register">
-            <button type="button" class="auth-tab active" role="tab" aria-selected="true">Login</button>
-            <button type="button" class="auth-tab" role="tab" aria-selected="false">Register</button>
-          </div>
-          <div class="form-group">
-            <label for="auth-email">Email</label>
-            <input id="auth-email" name="email" class="form-control" type="email" inputmode="email" maxlength="254" autocomplete="username" spellcheck="false" placeholder="you@example.com" required/>
-            <p class="field-error" id="auth-email-error" aria-live="polite"></p>
-          </div>
-          <div class="form-group">
-            <label for="auth-password">Password</label>
-            <div class="password-input-wrap">
-              <input id="auth-password" name="password" class="form-control has-toggle" type="password" maxlength="128" autocomplete="current-password" placeholder="Enter password" required/>
-              <button type="button" class="password-toggle" id="auth-password-toggle" aria-label="Show password" aria-pressed="false">👁️</button>
+          <div class="auth-tabs-wrap">
+            <div class="auth-tabs" role="tablist" aria-label="Login or Register">
+              <button type="button" class="auth-tab active" role="tab" aria-selected="true">Login</button>
+              <button type="button" class="auth-tab" role="tab" aria-selected="false">Register</button>
             </div>
-            <p class="field-error" id="auth-password-error" aria-live="polite"></p>
           </div>
-          <div class="form-group auth-register-only">
-            <label for="auth-phone-number">Phone Number</label>
-            <input id="auth-phone-number" name="phoneNumber" class="form-control" type="tel" inputmode="tel" maxlength="14" autocomplete="tel" placeholder="09XXXXXXXXX or +639XXXXXXXXX"/>
-            <p class="field-error" id="auth-phone-number-error" aria-live="polite"></p>
+          <div class="auth-form-scroll">
+            <div class="form-group">
+              <label for="auth-email">Email</label>
+              <input id="auth-email" name="email" class="form-control" type="email" inputmode="email" maxlength="254" autocomplete="username" spellcheck="false" placeholder="you@example.com" required/>
+              <p class="field-error" id="auth-email-error" aria-live="polite"></p>
+            </div>
+            <div class="form-group">
+              <label for="auth-password">Password</label>
+              <div class="password-input-wrap">
+                <input id="auth-password" name="password" class="form-control has-toggle" type="password" maxlength="128" autocomplete="current-password" placeholder="Enter password" required/>
+                <button type="button" class="password-toggle" id="auth-password-toggle" aria-label="Show password" aria-pressed="false">👁️</button>
+              </div>
+              <p class="field-error" id="auth-password-error" aria-live="polite"></p>
+            </div>
+            <div class="form-group auth-register-only">
+              <label for="auth-phone-number">Phone Number</label>
+              <input id="auth-phone-number" name="phoneNumber" class="form-control" type="tel" inputmode="tel" maxlength="14" autocomplete="tel" placeholder="09XXXXXXXXX or +639XXXXXXXXX"/>
+              <p class="field-error" id="auth-phone-number-error" aria-live="polite"></p>
+            </div>
+            <div class="form-group auth-register-only">
+              <label for="auth-address">Address</label>
+              <input id="auth-address" name="address" class="form-control" type="text" maxlength="255" autocomplete="street-address" placeholder="Enter your complete address"/>
+              <p class="field-error" id="auth-address-error" aria-live="polite"></p>
+            </div>
+            <p class="auth-password-hint" id="auth-password-hint">Use at least 8 characters with letters and numbers.</p>
+            <label class="auth-role-heading">Select your role</label>
+            <div class="role-selector" role="group" aria-label="Account role">
+              <button type="button" class="role-card selected" data-role="household" aria-pressed="true">
+                <span class="role-icon" aria-hidden="true">🏠</span>
+                <span class="role-label">Household</span>
+              </button>
+              <button type="button" class="role-card" data-role="collector" aria-pressed="false">
+                <span class="role-icon" aria-hidden="true">🚛</span>
+                <span class="role-label">Collector</span>
+              </button>
+              <button type="button" class="role-card" data-role="admin" aria-pressed="false">
+                <span class="role-icon" aria-hidden="true">🏢</span>
+                <span class="role-label">Admin</span>
+              </button>
+            </div>
+            <button type="submit" class="btn btn-primary" id="btn-login">Login to BinBuddy</button>
+            <p class="auth-foot-note">🔒 Sessions use signed tokens. Passwords stored hashed.</p>
           </div>
-          <div class="form-group auth-register-only">
-            <label for="auth-address">Address</label>
-            <input id="auth-address" name="address" class="form-control" type="text" maxlength="255" autocomplete="street-address" placeholder="Enter your complete address"/>
-            <p class="field-error" id="auth-address-error" aria-live="polite"></p>
-          </div>
-          <p class="auth-password-hint" id="auth-password-hint">Use at least 8 characters with letters and numbers.</p>
-          <label class="auth-role-heading">Select your role</label>
-          <div class="role-selector" role="group" aria-label="Account role">
-            <button type="button" class="role-card selected" data-role="household" aria-pressed="true">
-              <span class="role-icon" aria-hidden="true">🏠</span>
-              <span class="role-label">Household</span>
-            </button>
-            <button type="button" class="role-card" data-role="collector" aria-pressed="false">
-              <span class="role-icon" aria-hidden="true">🚛</span>
-              <span class="role-label">Collector</span>
-            </button>
-            <button type="button" class="role-card" data-role="admin" aria-pressed="false">
-              <span class="role-icon" aria-hidden="true">🏢</span>
-              <span class="role-label">Admin</span>
-            </button>
-          </div>
-          <button type="submit" class="btn btn-primary" id="btn-login">Login to BinBuddy</button>
-          <p class="auth-foot-note">🔒 Sessions use signed tokens. Passwords stored hashed.</p>
         </form>
       </div>
     </div>
@@ -120,7 +124,7 @@
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
             <h2>Eco Champion 🏆</h2>
-            <p id="home-user-address">Brgy. Holy Spirit, Lipa City</p>
+            <p id="home-user-address">No address provided</p>
           </div>
           <div style="text-align:right">
             <div style="font-size:1.8rem;font-weight:900;font-family:var(--font-main)">🔥 7</div>
@@ -154,6 +158,22 @@
         </div>
       </div>
 
+      <div class="section-title">♻️ PET &amp; HDPE insights</div>
+      <div class="home-plastic-insights">
+        <div class="card card-sm">
+          <div class="home-insight-title">🧴 PET <span class="home-insight-sub">Polyethylene Terephthalate</span></div>
+          <p class="home-insight-line"><strong>Common items:</strong> Water bottles, soda bottles</p>
+          <p class="home-insight-line"><strong>Recyclability:</strong> Easily recyclable</p>
+          <p class="home-insight-line"><strong>Tip:</strong> Rinse before disposal</p>
+        </div>
+        <div class="card card-sm">
+          <div class="home-insight-title">🧼 HDPE <span class="home-insight-sub">High-Density Polyethylene</span></div>
+          <p class="home-insight-line"><strong>Common items:</strong> Shampoo bottles, detergent containers</p>
+          <p class="home-insight-line"><strong>Recyclability:</strong> Strong and reusable plastic</p>
+          <p class="home-insight-line"><strong>Tip:</strong> Clean before recycling</p>
+        </div>
+      </div>
+
       <!-- Log Disposal Button -->
       <button class="log-btn" onclick="openLogModal()">
         📦 Log Disposal Now
@@ -178,7 +198,7 @@
         <div id="recent-logs">
           <!-- Rendered by JS -->
         </div>
-        <button class="btn btn-ghost" onclick="goTo('track')" style="font-size:0.85rem">View all logs →</button>
+        <button type="button" class="btn btn-ghost" onclick="goTo('track', { trackSubView: 'history' })" style="font-size:0.85rem">View all logs →</button>
       </div>
 
       <!-- Quick Navigate -->
@@ -280,10 +300,12 @@
         </button>
       </div>
 
-      <!-- History -->
-      <div class="section-title" style="margin-top:20px">📋 Disposal History</div>
-      <div class="card">
-        <div id="full-history"></div>
+      <!-- History (anchor for “View all logs” deep link) -->
+      <div id="track-disposal-history" class="track-history-block">
+        <div class="section-title track-history-title">📋 Disposal History</div>
+        <div class="card">
+          <div id="full-history"></div>
+        </div>
       </div>
     </div>
   </section>
@@ -331,7 +353,7 @@
       <div class="points-hero">
         <div class="pts-label">Your EcoPoints Balance</div>
         <div class="pts-value ecopoints-value">1,245</div>
-        <div class="pts-label" style="margin-top:4px">≈ ₱124 value · Brgy. Holy Spirit Rank #1 🏆</div>
+        <div class="pts-label" style="margin-top:4px" id="rewards-rank-sub">≈ ₱124 value · No address provided Rank #1 🏆</div>
       </div>
 
       <!-- Tabs for sections -->
@@ -368,7 +390,7 @@
     <div class="profile-hero">
       <div class="profile-avatar">👩</div>
       <div class="profile-name" id="profile-name">Maria Santos</div>
-      <div class="profile-role" id="profile-brgy">Brgy. Holy Spirit, Lipa City</div>
+      <div class="profile-role" id="profile-brgy">No address provided</div>
     </div>
 
     <div class="profile-page-body">
