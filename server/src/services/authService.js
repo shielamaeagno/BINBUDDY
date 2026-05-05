@@ -47,6 +47,10 @@ export function register({ email, password, name, role: roleRaw, phoneNumber, ad
     authLog("register_rejected", { reason: "invalid_role", roleRaw: typeof roleRaw === "string" ? roleRaw.slice(0, 32) : roleRaw });
     return { ok: false, message: "Invalid role. Use user, collector, or admin." };
   }
+  if (role === "admin") {
+    authLog("register_rejected", { reason: "admin_registration_disabled" });
+    return { ok: false, message: "Admin accounts are managed by the system." };
+  }
 
   const existing = getUserByEmail(email);
   if (existing) {
@@ -94,31 +98,15 @@ export function register({ email, password, name, role: roleRaw, phoneNumber, ad
   return { ok: true, token, user: toPublicUser(user) };
 }
 
-export function login({ email, password, role: roleRaw }) {
-  const requestedRole = normalizeRoleInput(roleRaw);
-  if (!requestedRole || !isCanonicalRole(requestedRole)) {
-    authLog("login_rejected", { reason: "invalid_role", roleRaw: typeof roleRaw === "string" ? roleRaw.slice(0, 32) : roleRaw });
-    return { ok: false, message: "Invalid role. Use user, collector, or admin." };
-  }
-
+export function login({ email, password }) {
   const user = getUserByEmail(email);
   if (!user) {
     authLog("login_rejected", { reason: "unknown_email" });
-    return { ok: false, message: "Invalid credentials for selected role." };
-  }
-
-  const storedRole = normalizeRoleInput(user.role);
-  if (storedRole !== requestedRole) {
-    authLog("login_rejected", {
-      reason: "role_mismatch",
-      requested: requestedRole,
-      stored: storedRole || user.role
-    });
-    return { ok: false, message: "Invalid credentials for selected role." };
+    return { ok: false, message: "Account does not exist." };
   }
   if (!bcrypt.compareSync(password, user.password_hash)) {
-    authLog("login_rejected", { reason: "bad_password", role: requestedRole });
-    return { ok: false, message: "Invalid credentials for selected role." };
+    authLog("login_rejected", { reason: "bad_password", role: user.role });
+    return { ok: false, message: "Incorrect password." };
   }
   const token = signToken({
     sub: user.id,

@@ -12,6 +12,31 @@
 <body>
 
 <div id="app">
+  <!-- Desktop top navigation (replaces bottom nav) -->
+  <header class="top-nav" id="top-nav" hidden aria-hidden="true">
+    <div class="top-nav-left">
+      <div class="top-nav-logo" role="button" tabindex="0" onclick="goTo('home')" aria-label="BinBuddy home">
+        ♻️ BinBuddy
+      </div>
+    </div>
+    <button class="top-nav-burger" id="top-nav-burger" type="button" aria-label="Menu" aria-expanded="false">☰</button>
+    <nav class="top-nav-menu" id="top-nav-menu" aria-label="Main navigation">
+      <button type="button" class="top-nav-item" data-nav="home" data-role="household">Dashboard</button>
+      <button type="button" class="top-nav-item" data-nav="track" data-role="household">Log Disposal</button>
+      <button type="button" class="top-nav-item" data-nav="rewards" data-role="household">Rewards</button>
+      <button type="button" class="top-nav-item" data-nav="notifications" data-role="household">Activity Log</button>
+      <button type="button" class="top-nav-item" data-nav="collector" data-role="collector">Collector</button>
+      <button type="button" class="top-nav-item" data-nav="collector-history" data-role="collector">History</button>
+      <button type="button" class="top-nav-item" data-nav="admin" data-role="admin">Admin</button>
+      <button type="button" class="top-nav-item" data-nav="profile" data-role="household">Profile</button>
+      <button type="button" class="top-nav-item" data-nav="collector-profile" data-role="collector">Profile</button>
+      <button type="button" class="top-nav-item" data-nav="admin-profile" data-role="admin">Profile</button>
+      <button type="button" class="top-nav-item top-nav-item--logout" data-action="logout" data-role="household">Logout</button>
+      <button type="button" class="top-nav-item top-nav-item--logout" data-action="logout" data-role="collector">Logout</button>
+      <button type="button" class="top-nav-item top-nav-item--logout" data-action="logout" data-role="admin">Logout</button>
+    </nav>
+  </header>
+
   <!-- Pre-auth: splash + login (removed from DOM after successful authentication) -->
   <div id="mount-login-phase">
   <!-- ====================================================
@@ -86,8 +111,8 @@
               <p class="field-error" id="auth-gender-error" aria-live="polite"></p>
             </div>
             <p class="auth-password-hint" id="auth-password-hint">Use at least 8 characters with letters and numbers.</p>
-            <label class="auth-role-heading">Select your role</label>
-            <div class="role-selector" role="group" aria-label="Account role">
+            <label class="auth-role-heading auth-register-only">Select your role</label>
+            <div class="role-selector auth-register-only" role="group" aria-label="Account role">
               <button type="button" class="role-card selected" data-role="household" aria-pressed="true">
                 <span class="role-icon" aria-hidden="true">🏠</span>
                 <span class="role-label">Household</span>
@@ -95,10 +120,6 @@
               <button type="button" class="role-card" data-role="collector" aria-pressed="false">
                 <span class="role-icon" aria-hidden="true">🚛</span>
                 <span class="role-label">Collector</span>
-              </button>
-              <button type="button" class="role-card" data-role="admin" aria-pressed="false">
-                <span class="role-icon" aria-hidden="true">🏢</span>
-                <span class="role-label">Admin</span>
               </button>
             </div>
             <button type="submit" class="btn btn-primary" id="btn-login">Login to BinBuddy</button>
@@ -119,12 +140,9 @@
   ==================================================== -->
   <section id="screen-home" class="screen">
     <div class="page-header">
-      <div class="page-header-sub">Welcome 🌿</div>
+      <div class="page-header-sub">Welcome </div>
       <div class="home-header-row">
-        <h1 id="home-greeting-name">Hi, User 👋</h1>
-        <button type="button" class="home-alert-right" id="home-alert-right" onclick="goTo('notifications');renderNotifications()" aria-label="Alerts">
-          🔔
-        </button>
+        <h1 id="home-greeting-name">Hi, User </h1>
       </div>
     </div>
     <div class="page-content">
@@ -132,7 +150,7 @@
       <div class="welcome-banner">
         <div style="display:flex;justify-content:space-between;align-items:flex-start">
           <div>
-            <h2>BinBuddy 🏆</h2>
+            <h2 id="home-disposal-rank" class="home-disposal-rank">—</h2>
             <p id="home-user-address">No address provided</p>
           </div>
           <div style="text-align:right">
@@ -427,8 +445,8 @@
         <div class="section-title">⚙️ Account & Actions</div>
         <div class="profile-menu-list">
           <div class="profile-menu-item" onclick="goTo('notifications');renderNotifications()">
-            <div class="pm-icon">🔔</div>
-            <div class="pm-label">Notifications</div>
+            <div class="pm-icon">📋</div>
+            <div class="pm-label">Activity Log</div>
             <div class="pm-arrow">›</div>
           </div>
           <div class="profile-menu-item" onclick="goTo('leaderboard')">
@@ -589,6 +607,7 @@
       <div class="section-title">🛠️ Admin Tools</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
         <button type="button" class="btn btn-primary" id="btn-export" style="font-size:0.88rem">📊 Export CSV</button>
+        <button type="button" class="btn btn-outline" id="btn-admin-export-xml" style="font-size:0.88rem">📄 Export XML (Excel)</button>
         <button type="button" class="btn btn-outline" id="btn-admin-broadcast" style="font-size:0.88rem">📢 Broadcast</button>
         <button type="button" class="btn btn-outline" id="btn-admin-users" style="font-size:0.88rem">👥 Users</button>
         <button type="button" class="btn btn-outline" id="btn-admin-report" style="font-size:0.88rem">📋 Full Report</button>
@@ -677,8 +696,8 @@
   ==================================================== -->
   <section id="screen-notifications" class="screen">
     <div class="page-header">
-      <div class="page-header-sub">🔔 Alerts</div>
-      <h1>Notifications</h1>
+      <div class="page-header-sub">📋 Your activity</div>
+      <h1>Activity Log</h1>
     </div>
     <div class="page-content">
       <div id="notif-list"></div>
@@ -825,52 +844,6 @@
       </div>
     </div>
   </section>
-
-  <!-- ====================================================
-       BOTTOM NAVIGATION
-  ==================================================== -->
-  <nav class="bottom-nav hidden" id="bottom-nav">
-    <button class="nav-item active" data-nav="home" data-role="household">
-      <span class="nav-icon">🏠</span>
-      <span class="nav-label">Home</span>
-    </button>
-    <button class="nav-item" data-nav="track" data-role="household">
-      <span class="nav-icon">📦</span>
-      <span class="nav-label">Log Waste</span>
-    </button>
-    <button class="nav-item" data-nav="guide" data-role="household">
-      <span class="nav-icon">📚</span>
-      <span class="nav-label">Guide</span>
-    </button>
-    <button class="nav-item" data-nav="rewards" data-role="household">
-      <span class="nav-icon">⭐</span>
-      <span class="nav-label">Rewards</span>
-    </button>
-    <button class="nav-item" data-nav="profile" data-role="household">
-      <span class="nav-icon">👤</span>
-      <span class="nav-label">Profile</span>
-    </button>
-    <button class="nav-item hidden" data-nav="collector" data-role="collector">
-      <span class="nav-icon">🏠</span>
-      <span class="nav-label">Home</span>
-    </button>
-    <button class="nav-item hidden" data-nav="collector-history" data-role="collector">
-      <span class="nav-icon">📋</span>
-      <span class="nav-label">History</span>
-    </button>
-    <button class="nav-item hidden" data-nav="collector-profile" data-role="collector">
-      <span class="nav-icon">👤</span>
-      <span class="nav-label">Profile</span>
-    </button>
-    <button class="nav-item hidden" data-nav="admin" data-role="admin">
-      <span class="nav-icon">🏠</span>
-      <span class="nav-label">Home</span>
-    </button>
-    <button class="nav-item hidden" data-nav="admin-profile" data-role="admin">
-      <span class="nav-icon">👤</span>
-      <span class="nav-label">Profile</span>
-    </button>
-  </nav>
 
   <!-- ====================================================
        FLOATING HELP BUTTON

@@ -45,13 +45,7 @@ export function postRegister(req, res) {
 
 export const loginValidators = [
   body("email").isEmail().normalizeEmail({ gmail_remove_dots: false }),
-  body("password").isString().isLength({ min: 1, max: 128 }),
-  body("role")
-    .custom((value) => {
-      const n = normalizeRoleInput(value);
-      return n != null && CANONICAL_ROLES.includes(n);
-    })
-    .withMessage("Role must be user, household, collector, or admin (lowercase).")
+  body("password").isString().isLength({ min: 1, max: 128 })
 ];
 
 export function postLogin(req, res) {
@@ -59,8 +53,8 @@ export function postLogin(req, res) {
   if (!errors.isEmpty()) {
     return res.status(400).json({ ok: false, message: "Invalid input.", errors: errors.array() });
   }
-  const { email, password, role } = req.body;
-  const result = login({ email, password, role });
+  const { email, password } = req.body;
+  const result = login({ email, password });
   if (!result.ok) return res.status(401).json(result);
   return res.json(result);
 }

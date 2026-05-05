@@ -26,6 +26,7 @@ import {
   postAdminBroadcast,
   broadcastValidators
 } from "../controllers/adminController.js";
+import { getLogsXml, getLogsXsl } from "../controllers/exportController.js";
 
 const r = Router();
 
@@ -49,6 +50,10 @@ r.get("/admin/export.csv", requireAuth, requireRoles("admin"), exportCsv);
 r.get("/admin/users", requireAuth, requireRoles("admin"), listAdminUsers);
 r.get("/admin/report", requireAuth, requireRoles("admin"), getAdminReport);
 r.post("/admin/broadcast", requireAuth, requireRoles("admin"), broadcastValidators, postAdminBroadcast);
+
+// Excel-friendly export (XML + XSL)
+r.get("/export/logs.xml", requireAuth, requireRoles("admin"), getLogsXml);
+r.get("/export/logs.xsl", requireAuth, requireRoles("admin"), getLogsXsl);
 
 r.use((req, res) => {
   res.status(404).json({ ok: false, message: "Not found." });

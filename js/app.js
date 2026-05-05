@@ -84,6 +84,75 @@ function getUserBarangayLabel(user) {
   return NO_ADDRESS_LABEL;
 }
 
+/** Lowercase key so households in the same barangay group together for rankings. */
+function userBarangayRankKey(user) {
+  if (!user) return "";
+  const br = String(user.barangay || "").trim().toLowerCase();
+  const cleanedBr = br.replace(/^(?:brgy\.?|barangay)\s*/i, "").trim();
+  if (cleanedBr) return cleanedBr;
+  const seg = extractBarangaySegment(user.address);
+  return String(seg || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^(?:brgy\.?|barangay)\s*/i, "")
+    .trim();
+}
+
+function completedVerifiedDisposalCount(userId) {
+  const uid = String(userId);
+  return AppState.logs.filter(l => String(l.userId) === uid && l.status === "Completed").length;
+}
+
+function completedVerifiedDisposalKg(userId) {
+  const uid = String(userId);
+  return AppState.logs
+    .filter(l => String(l.userId) === uid && l.status === "Completed")
+    .reduce((sum, l) => sum + (Number(l.weight) || 0), 0);
+}
+
+function householdCohortForDisposalRank(user) {
+  const households = AppState.users.filter(u => normalizeRole(u.role) === "household");
+  const key = userBarangayRankKey(user);
+  if (!key) return households;
+  return households.filter(u => userBarangayRankKey(u) === key);
+}
+
+/**
+ * Rank among household accounts in the same barangay (or all households if barangay unknown)
+ * by verified disposals: Completed logs, then kg, then EcoPoints as tie-breakers.
+ */
+function computeHouseholdDisposalRank(user) {
+  if (!user || normalizeRole(user.role) !== "household") return null;
+  const cohort = householdCohortForDisposalRank(user);
+  const rows = cohort.map(u => ({
+    id: String(u.id),
+    count: completedVerifiedDisposalCount(u.id),
+    kg: completedVerifiedDisposalKg(u.id),
+    pts: Number(u.ecoPoints) || 0
+  }));
+  rows.sort((a, b) => {
+    if (b.count !== a.count) return b.count - a.count;
+    if (b.kg !== a.kg) return b.kg - a.kg;
+    return b.pts - a.pts;
+  });
+  const myId = String(user.id);
+  let assignedRank = 1;
+  let myRank = null;
+  let myCount = 0;
+  for (let i = 0; i < rows.length; i++) {
+    if (i > 0) {
+      const cur = rows[i];
+      const prev = rows[i - 1];
+      if (cur.count !== prev.count || cur.kg !== prev.kg || cur.pts !== prev.pts) assignedRank = i + 1;
+    }
+    if (rows[i].id === myId) {
+      myRank = assignedRank;
+      myCount = rows[i].count;
+    }
+  }
+  return { rank: myRank, total: cohort.length, verifiedCount: myCount };
+}
+
 const NO_RECENT_ACTIVITY_TEXT = "No recent activity yet.";
 
 /** Waste logs tied to the authenticated user (numeric id or user_code must match). */
@@ -340,6 +409,13 @@ function normalizeRole(role) {
   return ROLE_ALIASES[role] || "household";
 }
 
+function selectedRegisterRole() {
+  const selected = document.querySelector(".role-card.selected");
+  const role = selected?.dataset?.role;
+  const n = normalizeRole(role);
+  return n === "collector" ? "collector" : "household";
+}
+
 const SessionManager = {
   save(session) {
     sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
@@ -390,8 +466,11 @@ function handlePopNavigate() {
     }
     exitAuthenticatedMount();
     dashboardScreensDeactivateAll();
-    const nav = document.getElementById("bottom-nav");
-    if (nav) nav.classList.add("hidden");
+    const topNav = document.getElementById("top-nav");
+    if (topNav) {
+      topNav.hidden = true;
+      topNav.setAttribute("aria-hidden", "true");
+    }
     refreshUI();
     const ae = document.getElementById("screen-auth");
     if (ae) resetViewportScroll(ae);
@@ -892,7 +971,7 @@ const AuthService = {
     if (addressErr) return { ok: false, message: addressErr };
     const genderErr = validateRegisterGenderClient(payload.gender);
     if (genderErr) return { ok: false, message: genderErr };
-    const existing = AppState.users.find(u => u.email.toLowerCase() === email.toLowerCase() && u.role === role);
+    const existing = AppState.users.find(u => u.email.toLowerCase() === email.toLowerCase());
     if (existing) return { ok: false, message: "Account already exists for this role." };
     const idPrefix = role === "collector" ? "COL" : role === "admin" ? "ADM" : "USR";
     const id = `${idPrefix}${String(AppState.users.length + 1).padStart(3, "0")}`;
@@ -918,14 +997,15 @@ const AuthService = {
   },
   login(payload) {
     const { email, password } = payload;
-    const role = normalizeRole(payload.role);
     const user = AppState.users.find(
       u =>
         u.email.toLowerCase() === email.toLowerCase() &&
-        u.password === password &&
-        normalizeRole(u.role) === role
+        u.password === password
     );
-    if (!user) return { ok: false, message: "Invalid credentials for selected role." };
+    if (!user) {
+      const exists = AppState.users.find(u => u.email.toLowerCase() === email.toLowerCase());
+      return { ok: false, message: exists ? "Incorrect password." : "Account does not exist." };
+    }
     AppState.currentUserId = user.id;
     AppState.currentUserName = user.name || "User";
     AppState.role = normalizeRole(user.role);
@@ -1208,13 +1288,13 @@ function goTo(screen, options = {}) {
     HistoryGuard.push(screen);
   }
   syncBottomNav(user, screen);
-  const nav = document.getElementById("bottom-nav");
-  if (nav) {
-    const shouldHideNav = screen === "auth" || screen === "splash" || !user;
-    nav.classList.toggle("hidden", shouldHideNav);
-  }
   refreshUI();
   resetViewportScroll(target);
+  if (screen === "admin" && apiMode && getToken()) {
+    void syncFromServer().then(ok => {
+      if (ok) refreshUI();
+    });
+  }
 }
 
 function navGoBack() {
@@ -1281,7 +1361,13 @@ function initDashboardBackButtons() {
 
 function syncBottomNav(user, screen) {
   const role = user ? normalizeRole(user.role) : null;
-  document.querySelectorAll(".nav-item").forEach(btn => {
+  const header = document.getElementById("top-nav");
+  if (header) {
+    const shouldHide = screen === "auth" || screen === "splash" || !user;
+    header.hidden = shouldHide;
+    header.setAttribute("aria-hidden", String(shouldHide));
+  }
+  document.querySelectorAll(".top-nav-item").forEach(btn => {
     const itemRole = btn.dataset.role || "household";
     const isRoleMatch = Boolean(role) && itemRole === role;
     btn.classList.toggle("hidden", !isRoleMatch);
@@ -1598,6 +1684,22 @@ function renderUserAddress() {
   }
 }
 
+function renderHomeDisposalRank() {
+  const el = document.getElementById("home-disposal-rank");
+  if (!el) return;
+  const user = AuthService.currentUser();
+  if (!user || normalizeRole(user.role) !== "household") {
+    el.textContent = "";
+    return;
+  }
+  const r = computeHouseholdDisposalRank(user);
+  if (!r || r.rank == null) {
+    el.textContent = "Disposal rank —";
+    return;
+  }
+  el.textContent = `Rank #${r.rank} of ${r.total} · ${r.verifiedCount} verified disposal${r.verifiedCount === 1 ? "" : "s"}`;
+}
+
 function renderRewardsBarangay() {
   const el = document.getElementById("rewards-rank-sub");
   if (!el) return;
@@ -1605,7 +1707,9 @@ function renderRewardsBarangay() {
   const pts = user && normalizeRole(user.role) === "household" ? Number(user.ecoPoints) || 0 : 0;
   const peso = Math.max(0, Math.round(pts / 10));
   const brgy = user ? getUserBarangayLabel(user) : NO_ADDRESS_LABEL;
-  el.textContent = `≈ ₱${peso} value · ${brgy} Rank #1 🏆`;
+  const r = user && normalizeRole(user.role) === "household" ? computeHouseholdDisposalRank(user) : null;
+  const rankBit = r && r.rank != null ? `Rank #${r.rank} of ${r.total}` : "Rank —";
+  el.textContent = `≈ ₱${peso} value · ${brgy} · ${rankBit} 🏆`;
 }
 
 function renderCollectorView() {
@@ -1680,6 +1784,43 @@ async function handleCollectorDecision(logId, isVerified) {
     isVerified ? "Verified — log moved to history." : "Marked as not segregated — stays on active dashboard."
   );
   refreshUI();
+}
+
+function adminWasteLogStatusLabel(log) {
+  if (log.status === "Completed") return "Verified";
+  if (log.status === "Rejected") return "Not segregated";
+  return "Pending pickup";
+}
+
+/** Read-only mirror of all household logs — same records collectors verify (GET /logs for admin). */
+function renderAdminWasteLogs() {
+  const el = document.getElementById("admin-waste-logs-list");
+  if (!el) return;
+  const user = AuthService.currentUser();
+  if (!user || normalizeRole(user.role) !== "admin") {
+    el.innerHTML = "";
+    return;
+  }
+  const logs = (AppState.logs || [])
+    .slice()
+    .sort((a, b) => logReferenceInstant(b).getTime() - logReferenceInstant(a).getTime());
+  if (!logs.length) {
+    el.innerHTML = `<p style="font-size:0.88rem;color:var(--text-muted);margin:0">No waste logs yet.</p>`;
+    return;
+  }
+  el.innerHTML = logs
+    .map(log => {
+      const st = adminWasteLogStatusLabel(log);
+      const verifier =
+        log.status === "Completed" && log.verifiedBy ? ` · Collector ${log.verifiedBy}` : "";
+      const pts = log.ecoPointsAwarded ? ` · +${log.ecoPointsAwarded} pts` : "";
+      return `
+    <div class="card" style="margin-bottom:8px">
+      <strong>${log.userName}</strong> · ${log.type} · ${log.weight} kg<br/>
+      <small>Status: <strong>${st}</strong> · ${formatDateTime(log.createdAt)}${pts}${verifier}</small>
+    </div>`;
+    })
+    .join("");
 }
 
 function renderAdminAnalytics() {
@@ -2234,7 +2375,6 @@ function initAuth() {
       });
       card.classList.add("selected");
       card.setAttribute("aria-pressed", "true");
-      AppState.role = normalizeRole(card.dataset.role);
     });
   });
 
@@ -2290,7 +2430,7 @@ function initAuth() {
     }
 
     if (AppState.authMode === "register") {
-      const registrationRole = normalizeRole(AppState.role);
+      const registrationRole = selectedRegisterRole();
       const displayName = sanitizeRegisterName(email);
       try {
         const reg = await apiFetch("/auth/register", {
@@ -2326,7 +2466,7 @@ function initAuth() {
           showToast(e.message || reg.message);
           return;
         }
-        const locLogin = AuthService.login({ email, password, role: registrationRole });
+        const locLogin = AuthService.login({ email, password });
         if (!locLogin.ok) {
           showToast(locLogin.message);
           return;
@@ -2342,8 +2482,7 @@ function initAuth() {
         method: "POST",
         body: JSON.stringify({
           email,
-          password,
-          role: normalizeRole(AppState.role)
+          password
         })
       });
       setToken(login.token);
@@ -2353,10 +2492,10 @@ function initAuth() {
       showToast(`Welcome, ${login.user.name}`);
       return;
     } catch (e) {
-      const loginFallback = AuthService.login({ email, password, role: normalizeRole(AppState.role) });
+      const loginFallback = AuthService.login({ email, password });
       if (!loginFallback.ok) {
         setFieldError(passwordInput, passwordError, "Incorrect password");
-        showToast("Incorrect password");
+        showToast(loginFallback.message || "Login failed.");
         return;
       }
       const targetScreen = getRoleHomeScreen(loginFallback.user.role);
@@ -2585,10 +2724,50 @@ function initAdminActions() {
   });
 
   document.getElementById("btn-admin-report")?.addEventListener("click", () => openAdminReportTool());
+
+  // Excel-friendly XML + XSL export (admin only).
+  const exportXmlBtn = document.getElementById("btn-admin-export-xml");
+  exportXmlBtn?.addEventListener("click", async () => {
+    const user = AuthService.currentUser();
+    if (!user || user.role !== "admin") {
+      showToast("Admin access only.");
+      return;
+    }
+    if (apiMode && getToken()) {
+      try {
+        const res = await fetch(`${API_BASE}/export/logs.xml`, {
+          headers: { Authorization: `Bearer ${getToken()}` }
+        });
+        if (!res.ok) throw new Error("Export failed.");
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "binbuddy-waste-logs.xml";
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast("XML downloaded.");
+        return;
+      } catch (e) {
+        showToast(e.message || "Export failed.");
+        return;
+      }
+    }
+    showToast("XML export requires server mode.");
+  });
 }
 
 function initNavigation() {
-  document.querySelectorAll(".nav-item").forEach(btn => {
+  const burger = document.getElementById("top-nav-burger");
+  const header = document.getElementById("top-nav");
+  burger?.addEventListener("click", () => {
+    if (!header || !burger) return;
+    const open = !header.classList.contains("is-open");
+    header.classList.toggle("is-open", open);
+    burger.setAttribute("aria-expanded", String(open));
+  });
+
+  document.querySelectorAll(".top-nav-item").forEach(btn => {
     const navigate = () => {
       const action = btn.dataset.action;
       if (action === "logout") {
@@ -2597,6 +2776,8 @@ function initNavigation() {
       }
       const screen = btn.dataset.nav;
       if (screen) goTo(screen);
+      header?.classList.remove("is-open");
+      burger?.setAttribute("aria-expanded", "false");
     };
     btn.addEventListener("click", navigate);
     btn.addEventListener(
@@ -2680,6 +2861,7 @@ function selectModalType(type, el) {
 function refreshUI() {
   renderHomeGreeting();
   renderUserAddress();
+  renderHomeDisposalRank();
   renderRewardsBarangay();
   renderProfile();
   renderCollectorProfileShell();
@@ -2690,6 +2872,7 @@ function refreshUI() {
   renderCollectorHistoryPage();
   renderLeaderboard();
   renderAdminAnalytics();
+  renderAdminWasteLogs();
   initRewards();
   persistState();
 }
@@ -2732,12 +2915,16 @@ function goToAuthScreen(refresh = true) {
   const target = document.getElementById("screen-auth");
   if (target) target.classList.add("active");
   AppState.currentScreen = "auth";
-  document.querySelectorAll(".nav-item").forEach(btn => {
+  const topNav = document.getElementById("top-nav");
+  if (topNav) {
+    topNav.hidden = true;
+    topNav.setAttribute("aria-hidden", "true");
+    topNav.classList.remove("is-open");
+  }
+  document.querySelectorAll(".top-nav-item").forEach(btn => {
     btn.classList.remove("active");
     btn.classList.add("hidden");
   });
-  const nav = document.getElementById("bottom-nav");
-  if (nav) nav.classList.add("hidden");
   if (window.clearAuthFields) window.clearAuthFields();
   if (window.focusAuthEmail) window.focusAuthEmail();
   if (refresh) refreshUI();
